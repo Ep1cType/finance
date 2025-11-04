@@ -1,5 +1,4 @@
-@import "../../../../node_modules/tailwindcss/dist/lib.d.mts";
-@import "../../../../node_modules/tw-animate-css/dist/tw-animate.css";
+@import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -122,10 +121,10 @@
 }
 
 @utility scrollbar-hidden {
-        -ms-overflow-style: none;  /* IE and Edge */
-        scrollbar-width: none;     /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 
-    &::-webkit-scrollbar {
-        display: none;             /* Chrome, Safari, Opera */
-    }
+  &::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
 }

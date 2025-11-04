@@ -12,7 +12,10 @@
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
-    "indentWidth": 2
+    "indentWidth": 2,
+    "bracketSameLine": false,
+    "bracketSpacing": true,
+    "lineWidth": 120
   },
   "linter": {
     "enabled": true,
@@ -32,6 +35,14 @@
       "source": {
         "organizeImports": "on"
       }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "semicolons": "always",
+      "bracketSpacing": true,
+      "trailingCommas": "all",
+      "quoteStyle": "double"
     }
   }
 }
