@@ -1,17 +1,9 @@
 "use client";
 
-import { Home, PieChart, Settings, TrendingUp, Wallet } from "lucide-react";
+import { navItems } from "features/navigation/config";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "shared/lib/utils";
-
-const navItems = [
-  { href: "/", label: "Главная", icon: Home },
-  { href: "/transactions", label: "Транзакции", icon: TrendingUp },
-  { href: "/accounts", label: "Счета", icon: Wallet },
-  { href: "/analytics", label: "Аналитика", icon: PieChart },
-  { href: "/settings", label: "Настройки", icon: Settings },
-];
 
 export function MobileNav() {
   const pathname = usePathname();

@@ -16,21 +16,11 @@ import {
   SelectValue,
 } from "components/ui/select";
 import { useUnit } from "effector-react";
+import { $categories } from "entity/category/store";
 import type { Transaction } from "entity/transaction/model";
 import { $userInfo } from "entity/user/store";
-import {
-  $incomeExpenseFormState,
-  $isSubmitting,
-  $selectedWallet,
-  resetForm,
-  setAmount,
-  setCategory,
-  setDate,
-  setNote,
-  setWallet,
-  submitForm,
-  toggleTag,
-} from "features/add-transaction/store";
+import { $defaultWallet, $wallets } from "entity/wallet/store";
+import { transactionDrawer } from "features/add-transaction/store";
 import { CalendarIcon } from "lucide-react";
 import { type SyntheticEvent, useRef } from "react";
 import { cn } from "shared/lib/utils";
@@ -51,64 +41,64 @@ interface Props {
 }
 
 export const IncomeExpenseForm = ({ onClose, type }: Props) => {
+  const { formState, submitForm, resetForm, isSubmitting, isOpen, setIsOpen, defaultWallet } = useUnit({
+    formState: transactionDrawer.$formState,
+    isOpen: transactionDrawer.$isOpen,
+    setIsOpen: transactionDrawer.toggleDrawer,
+    submitForm: transactionDrawer.submitForm,
+    resetForm: transactionDrawer.resetForm,
+    isSubmitting: transactionDrawer.$isSubmitting,
+    defaultWallet: $defaultWallet,
+  });
+
   // Subscribe to stores
-  const [userInfo, formState, selectedWallet, isSubmitting] = useUnit([
-    $userInfo,
-    $incomeExpenseFormState,
-    $selectedWallet,
-    $isSubmitting,
-  ]);
+  const [userInfo, wallets, categories] = useUnit([$userInfo, $wallets, $categories]);
 
   const categoryRef = useRef<HTMLButtonElement>(null);
-
-  const [
-    handleSetAmount,
-    handleSetNote,
-    handleSetCategory,
-    handleSetDate,
-    handleSetWallet,
-    handleToggleTag,
-    handleResetForm,
-    handleSubmit,
-  ] = useUnit([setAmount, setNote, setCategory, setDate, setWallet, toggleTag, resetForm, submitForm]);
 
   const onCreateClick = async (event: SyntheticEvent) => {
     event.preventDefault();
 
     const newTransaction: Transaction.Payload = {
-      tags: formState.selectedTags,
-      amount: formState.amount,
+      // tags: formState.selectedTags,
+      amount: String(formState.amount),
       type: type,
-      note: formState.note,
-      category: formState.category,
-      recurrence: null,
-      subItems: [],
+      // note: formState.note,
+      categoryId: formState.category,
+      // recurrence: null,
+      // subItems: [],
       date: formState.date.toISOString(),
+      description: formState.note,
+      walletId: formState.wallet,
     };
 
-    handleSubmit(newTransaction);
+    submitForm(newTransaction);
     onClose();
   };
 
   const handleClose = () => {
-    handleResetForm();
+    resetForm();
     onClose();
   };
 
   return (
     <div className="space-y-4">
+      {/* Кошелёк */}
       {userInfo && (
         <div className="grid gap-3">
           <Label htmlFor="wallet">Кошелёк</Label>
-          <Select value={selectedWallet} onValueChange={handleSetWallet}>
+          <Select
+            value={formState.wallet || defaultWallet?.id}
+            onValueChange={(value) => transactionDrawer.setWallet(value)}
+          >
             <SelectTrigger id="wallet" className="w-full">
               <SelectValue placeholder="Кошелёк" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
                 <SelectLabel>Кошелёк</SelectLabel>
-                {userInfo.wallets.map((wallet) => (
-                  <SelectItem key={wallet.id} value={String(wallet.id)}>
+                {wallets.map((wallet) => (
+                  <SelectItem key={wallet.id} value={wallet.id}>
                     {wallet.name}
                   </SelectItem>
                 ))}
@@ -118,21 +108,23 @@ export const IncomeExpenseForm = ({ onClose, type }: Props) => {
         </div>
       )}
 
+      {/* Сумма */}
       <PriceInput
         label="Сумма"
         currency="₽"
         value={formState.amount}
-        onChange={handleSetAmount}
+        onChange={(value) => transactionDrawer.setAmount(value)}
         enterKeyHint="next"
         onEnterPress={() => {}}
       />
 
+      {/* Описание */}
       <div className="grid gap-3">
         <Label htmlFor="description">Описание</Label>
         <Input
           id="description"
           value={formState.note}
-          onChange={(e) => handleSetNote(e.target.value)}
+          onChange={(e) => transactionDrawer.setNote(e.target.value)}
           enterKeyHint="next"
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -143,11 +135,12 @@ export const IncomeExpenseForm = ({ onClose, type }: Props) => {
         />
       </div>
 
+      {/* Ярлык */}
       <div className="grid gap-3">
         <Label htmlFor="label">Ярлык</Label>
         <ul className="flex overflow-x-auto gap-1 py-2 scrollbar-hidden">
           {userInfo?.tags.map((tag) => (
-            <li key={tag.id} className="relative" onClick={() => handleToggleTag(tag.id)}>
+            <li key={tag.id} className="relative" onClick={() => transactionDrawer.toggleTag(tag.id)}>
               <Badge
                 className="py-1 px-4"
                 asChild
@@ -160,23 +153,27 @@ export const IncomeExpenseForm = ({ onClose, type }: Props) => {
         </ul>
       </div>
 
+      {/* Категория */}
       <div className="grid gap-3">
         <Label htmlFor="category">Категория</Label>
-        <Select value={formState.category} onValueChange={handleSetCategory}>
+        <Select value={formState.category} onValueChange={(value) => transactionDrawer.setCategory(value)}>
           <SelectTrigger id="category" ref={categoryRef} className="w-full">
             <SelectValue placeholder="Категория" />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
               <SelectLabel>Категории</SelectLabel>
-              <SelectItem value="Развлечение">Развлечение</SelectItem>
-              <SelectItem value="Кофе">Кофе</SelectItem>
-              <SelectItem value="Тест">Тест</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.id}>
+                  {category.icon} {category.name}
+                </SelectItem>
+              ))}
             </SelectGroup>
           </SelectContent>
         </Select>
       </div>
 
+      {/* Дата */}
       <div className="grid gap-3">
         <Label htmlFor="date">Дата</Label>
         <Popover>
@@ -195,11 +192,27 @@ export const IncomeExpenseForm = ({ onClose, type }: Props) => {
               disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
               captionLayout="dropdown"
               selected={formState.date}
-              onSelect={(e) => handleSetDate(e || new Date())}
+              onSelect={(e) => transactionDrawer.setDate(e || new Date())}
             />
           </PopoverContent>
         </Popover>
       </div>
+
+      {/*<div className="grid gap-3">*/}
+      {/*  <Label htmlFor="subTransaction">Подтранзакция</Label>*/}
+      {/*  <Input*/}
+      {/*    id="subTransaction"*/}
+      {/*    value={formState.note}*/}
+      {/*    onChange={(e) => handleSetNote(e.target.value)}*/}
+      {/*    enterKeyHint="next"*/}
+      {/*    onKeyDown={(e) => {*/}
+      {/*      if (e.key === "Enter") {*/}
+      {/*        e.preventDefault();*/}
+      {/*        categoryRef.current?.click();*/}
+      {/*      }*/}
+      {/*    }}*/}
+      {/*  />*/}
+      {/*</div>*/}
 
       <Button className="w-full" variant="default" size="lg" onClick={onCreateClick} disabled={isSubmitting}>
         {isSubmitting ? "Добавление..." : "Добавить"}

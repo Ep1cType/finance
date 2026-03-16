@@ -1,5 +1,6 @@
 import { createEffect, createStore, sample } from "effector";
 import { createGate } from "effector-react";
+import { fetchWrapper } from "shared/api/fetchWrapper";
 import { Transaction } from "./model";
 
 export const TransactionGate = createGate();
@@ -11,10 +12,13 @@ export const $groupedTransactionList = createStore<Transaction.GroupedByDate[]>(
 
 export const fetchTransactionListFx = createEffect(async () => {
   try {
-    const response = await fetch("/api", {
-      method: "GET",
-    });
-    return (await response.json()) as Transaction.Item[];
+    const response = await fetchWrapper.get<Transaction.Item[]>("/transactions");
+
+    if (response.error || !response.data) {
+      return [];
+    }
+
+    return response.data;
   } catch (e) {
     console.error(e);
     return [];
@@ -23,14 +27,20 @@ export const fetchTransactionListFx = createEffect(async () => {
 
 export const addTransactionFx = createEffect(async (transaction: Transaction.Payload) => {
   try {
-    const response = await fetch("/api", {
-      method: "POST",
-      body: JSON.stringify(transaction),
-    });
+    const response = await fetchWrapper.post<Transaction.Item>("/transactions", transaction);
 
-    const data = await response.json();
+    // const response = await fetch("/api", {
+    //   method: "POST",
+    //   body: JSON.stringify(transaction),
+    // });
 
-    return data as Transaction.Item;
+    if (response.error || !response.data) {
+      throw new Error("");
+    }
+
+    return response.data;
+
+    // const data = await response.json();
   } catch (e) {
     console.error(e);
   }

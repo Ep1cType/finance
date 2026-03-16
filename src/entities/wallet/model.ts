@@ -1,13 +1,23 @@
 export namespace Wallet {
   export interface Entity {
-    id: string | number;
+    id: string;
+    balance: string;
+    createdAt: string;
+    currency: "USD";
+    isDefault: boolean;
     name: string;
-    amount: number;
-    history: History[];
+    updatedAt: string;
+    userId: string;
   }
 
   export interface History {
     date: string;
     value: number;
   }
+
+  export type Payload = {
+    name: string;
+    balance?: string;
+    currency?: string;
+  };
 }

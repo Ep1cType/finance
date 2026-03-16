@@ -15,11 +15,10 @@ import {
   SelectValue,
 } from "components/ui/select";
 import { useUnit } from "effector-react";
-import type { Transaction } from "entity/transaction/model";
-import { addTransactionFx } from "entity/transaction/store";
 import { $userInfo } from "entity/user/store";
+import { $wallets } from "entity/wallet/store";
 import { CalendarIcon } from "lucide-react";
-import { type SyntheticEvent, useCallback, useState } from "react";
+import { type SyntheticEvent, useState } from "react";
 import { cn } from "shared/lib/utils";
 
 interface Props {
@@ -27,19 +26,13 @@ interface Props {
 }
 
 export const TransferForm = ({ onClose }: Props) => {
-  const [userInfo] = useUnit([$userInfo]);
+  const [userInfo, wallets] = useUnit([$userInfo, $wallets]);
 
   const [fromWallet, setFromWallet] = useState(String(userInfo?.wallets[0].id));
   const [toWallet, setToWallet] = useState(String(userInfo?.wallets[1].id));
   const [amount, setAmount] = useState(0);
   const [note, setNote] = useState("");
   const [date, setDate] = useState(new Date());
-
-  const { numbers, generateNumbers } = useRandomNumber();
-
-  const handleGenerate = () => {
-    generateNumbers(0, 1000, 5);
-  };
 
   const onCreateClick = async (event: SyntheticEvent) => {
     event.preventDefault();
@@ -76,12 +69,11 @@ export const TransferForm = ({ onClose }: Props) => {
           <SelectContent>
             <SelectGroup>
               <SelectLabel>Кошелёк</SelectLabel>
-              {userInfo &&
-                userInfo.wallets.map((wallet) => (
-                  <SelectItem key={wallet.id} value={String(wallet.id)}>
-                    {wallet.name}
-                  </SelectItem>
-                ))}
+              {wallets.map((wallet) => (
+                <SelectItem key={wallet.id} value={wallet.id}>
+                  {wallet.name}
+                </SelectItem>
+              ))}
             </SelectGroup>
           </SelectContent>
         </Select>
@@ -95,12 +87,11 @@ export const TransferForm = ({ onClose }: Props) => {
           <SelectContent>
             <SelectGroup>
               <SelectLabel>Кошелёк</SelectLabel>
-              {userInfo &&
-                userInfo.wallets.map((wallet) => (
-                  <SelectItem key={wallet.id} value={String(wallet.id)}>
-                    {wallet.name}
-                  </SelectItem>
-                ))}
+              {wallets.map((wallet) => (
+                <SelectItem key={wallet.id} value={wallet.id}>
+                  {wallet.name}
+                </SelectItem>
+              ))}
             </SelectGroup>
           </SelectContent>
         </Select>
@@ -143,31 +134,3 @@ export const TransferForm = ({ onClose }: Props) => {
     </div>
   );
 };
-
-// Custom hook for random number generation
-export function useRandomNumber() {
-  const [numbers, setNumbers] = useState([]);
-
-  const generateNumbers = useCallback((min: any, max: any, count: any, allowDuplicates = true) => {
-    const newNumbers = [];
-    const used = new Set();
-
-    for (let i = 0; i < count; i++) {
-      let number = Math.floor(Math.random() * (max - min + 1)) + min;
-
-      if (!allowDuplicates) {
-        while (used.has(number)) {
-          number = Math.floor(Math.random() * (max - min + 1)) + min;
-        }
-        used.add(number);
-      }
-
-      newNumbers.push(number);
-    }
-
-    setNumbers(newNumbers as any);
-    return newNumbers;
-  }, []);
-
-  return { numbers, generateNumbers };
-}

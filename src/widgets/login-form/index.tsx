@@ -1,21 +1,23 @@
 "use client";
 
 import { Button } from "components/ui/button";
-import { Input } from "components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "components/ui/input-group";
 import { Label } from "components/ui/label";
 import { Spinner } from "components/ui/spinner";
 import { Eye, EyeOff } from "lucide-react";
+import { redirect } from "next/navigation";
 import type React from "react";
 import { useState } from "react";
+import { fetchWrapper } from "shared/api/fetchWrapper";
 
 interface Props {
   onForgotPassword?: () => void;
 }
 
 export function LoginForm({ onForgotPassword }: Props) {
-  const [email, setEmail] = useState("d.che@mail.ru");
-  const [password, setPassword] = useState("5134");
+  // TODO: remove default user data;
+  const [email, setEmail] = useState("den138@mail.ru");
+  const [password, setPassword] = useState("53779e4c");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -23,11 +25,21 @@ export function LoginForm({ onForgotPassword }: Props) {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const response = await fetchWrapper.post(
+      "/auth/login",
+      {
+        email: email,
+        password: password,
+      },
+      { requireAuth: true },
+    );
 
+    // TODO: remove console.log
+    console.log("login", response);
     console.log("Login:", { email, password });
+
     setIsLoading(false);
+    redirect("/");
   };
 
   return (
@@ -124,6 +136,7 @@ export function LoginForm({ onForgotPassword }: Props) {
         </div>
       </div>
 
+      {/* TODO: Fix icons */}
       <div className="grid grid-cols-2 gap-4">
         <Button
           type="button"

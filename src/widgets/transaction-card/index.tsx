@@ -18,6 +18,7 @@ import {
   Plus,
   ShoppingCart,
   Tag,
+  Trash2,
   Utensils,
 } from "lucide-react";
 import { useState } from "react";
@@ -67,7 +68,7 @@ export const TransactionCard = ({ transaction }: Props) => {
   const transactionType = TRANSACTION_TYPES[transaction.type];
   const TypeIcon = transactionType.icon;
   const CategoryIcon = CATEGORY_ICONS[transaction.category] || Gift;
-  const hasSubItems = transaction.subItems && transaction.subItems.length > 0;
+  const hasSubItems = transaction.subitems && transaction.subitems.length > 0;
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat("ru-RU", {
@@ -112,7 +113,7 @@ export const TransactionCard = ({ transaction }: Props) => {
   };
 
   return (
-    <div className="bg-white overflow-hidden select-none" onTouchStart={handleTouchStart}>
+    <div className="bg-white overflow-hidden select-none group" onTouchStart={handleTouchStart}>
       {/* Основная информация о транзакции */}
       <div
         className={clsx("px-4 py-2", hasSubItems && "cursor-pointer")}
@@ -129,18 +130,33 @@ export const TransactionCard = ({ transaction }: Props) => {
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-slate-900 text-sm">{transaction.category}</span>
+                  <span className="font-medium text-slate-900 text-sm">{transaction.category?.name}</span>
                   <TypeIcon className={`w-3 h-3 ${transactionType.color}`} />
                 </div>
+                {/*<div className="flex items-center gap-2">*/}
                 <span className={`text-base ${transactionType.color}`}>
                   {transaction.type === "income" ? "+" : transaction.type === "expense" ? "-" : ""}
                   {formatAmount(transaction.amount)}
                 </span>
+
+                {/* Кнопка удаления - показывается при hover */}
+                {/*<button*/}
+                {/*  // onClick={handleDeleteClick}*/}
+                {/*  className={clsx(*/}
+                {/*    "w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all",*/}
+                {/*    "opacity-0 group-hover:opacity-100",*/}
+                {/*  )}*/}
+                {/*  title="Удалить транзакцию"*/}
+                {/*  type="button"*/}
+                {/*>*/}
+                {/*  <Trash2 className="w-4 h-4" />*/}
+                {/*</button>*/}
+                {/*</div>*/}
               </div>
 
-              {transaction.note && (
+              {transaction.description && (
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-slate-600 text-sm">{transaction.note}</p>
+                  <p className="text-slate-600 text-sm">{transaction.description}</p>
                   {hasSubItems && (
                     <button
                       className="p-1 hover:bg-slate-100 rounded transition-colors"
@@ -161,13 +177,13 @@ export const TransactionCard = ({ transaction }: Props) => {
               )}
 
               {/* Ярлыки */}
-              {transaction.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {transaction.tags.map((tag) => (
-                    <CardTag key={tag.id + tag.name} tag={tag} />
-                  ))}
-                </div>
-              )}
+              {/*{transaction.tags.length > 0 && (*/}
+              {/*  <div className="flex flex-wrap gap-1 mb-2">*/}
+              {/*    {transaction.tags.map((tag) => (*/}
+              {/*      <CardTag key={tag.id + tag.name} tag={tag} />*/}
+              {/*    ))}*/}
+              {/*  </div>*/}
+              {/*)}*/}
 
               {/* Дата */}
               <div className="flex items-center gap-1 text-slate-500">
@@ -208,7 +224,7 @@ export const TransactionCard = ({ transaction }: Props) => {
         <div className="border-t border-slate-100 bg-slate-50">
           <div className="p-4 pt-3">
             <div className="space-y-2">
-              {transaction.subItems.map((item) => (
+              {transaction.subitems.map((item) => (
                 <div key={item.id} className="flex justify-between items-center py-1">
                   <span className="text-sm text-slate-600">{item.name}</span>
                   <span className="text-sm font-medium text-slate-700">{formatAmount(item.amount)}</span>

@@ -1,7 +1,10 @@
 "use client";
 
-import { clsx } from "clsx";
+import { InputOtp } from "components/inputOtp";
+import { OTPInput } from "components/otp";
+import { Button } from "components/ui/button";
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "components/ui/chart";
+import { Switch } from "components/ui/switch";
 import { useUnit } from "effector-react";
 import type { Transaction } from "entity/transaction/model";
 import {
@@ -10,8 +13,10 @@ import {
   fetchTransactionListFx,
   TransactionGate,
 } from "entity/transaction/store";
-import { useMemo } from "react";
+import { AddTransaction } from "features/add-transaction";
+import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { PageLayout } from "shared/ui/page-layout";
 import { TransactionActionDrawer } from "widgets/transaction-action-drawer";
 import { TransactionCard } from "widgets/transaction-card";
 
@@ -65,9 +70,9 @@ export default function Home() {
       }
 
       if (transaction.type === "income") {
-        monthlyData[monthYear].income += transaction.amount;
+        monthlyData[monthYear].income += Number(transaction.amount);
       } else if (transaction.type === "expense") {
-        monthlyData[monthYear].expense += transaction.amount;
+        monthlyData[monthYear].expense += Number(transaction.amount);
       }
       // transfers are not included in income/expense chart
     });
@@ -111,14 +116,196 @@ export default function Home() {
   const calculateTotalMonthAmount = (group: Transaction.GroupedByDate) => {
     return group.transactions.reduce((previousValue, currentValue) => {
       if (currentValue.type === "income") {
-        return previousValue + currentValue.amount;
+        return Number(previousValue) + Number(currentValue.amount);
       }
-      return previousValue - currentValue.amount;
+      return Number(previousValue) - Number(currentValue.amount);
     }, 0);
   };
 
+  const register = async () => {
+    const response = await fetch("http://localhost:3000/auth/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: "den138@mail.ru",
+        password: "53779e4c",
+        firstName: "Denis",
+        lastName: "Chernykh",
+      }),
+    });
+
+    const data = response.json();
+    console.log("register", data);
+  };
+
+  const login = async () => {
+    const response = await fetch("http://localhost:3000/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        email: "den138@mail.ru",
+        password: "53779e4c",
+      }),
+    });
+
+    const data = response.json();
+    console.log("login", data);
+  };
+
+  const me = async () => {
+    const response = await fetch("http://localhost:3003/auth/me", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      // body: JSON.stringify({
+      //   email: "DenRus38@hotmail.com",
+      //   password: "53779e4c",
+      // }),
+    });
+
+    const data = response.json();
+    console.log("me", data);
+  };
+
+  const wallets = async () => {
+    const response = await fetch("http://localhost:3000/wallets", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      // body: JSON.stringify({
+      //   email: "DenRus38@hotmail.com",
+      //   password: "53779e4c",
+      // }),
+    });
+
+    const data = response.json();
+    console.log("wallets", data);
+  };
+
+  const profile = async () => {
+    const response = await fetch("http://localhost:3000/users/profile", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      // body: JSON.stringify({
+      //   email: "DenRus38@hotmail.com",
+      //   password: "53779e4c",
+      // }),
+    });
+
+    const data = response.json();
+    console.log("profile", data);
+  };
+
+  const createOneT = async () => {
+    const response = await fetch("http://localhost:3000/transactions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        type: "income",
+        walletId: "56ce32bc-7c2c-4088-b2c3-7563eba16eaf",
+        amount: "1337.85",
+        description: "SomeT",
+        date: new Date(),
+        categoryId: "699ced88-9772-4da6-9d2d-1452c2e8ec12",
+        tagIds: [],
+      }),
+    });
+
+    const data = response.json();
+    console.log("login", data);
+  };
+
+  const createTwoT = async () => {
+    const response = await fetch("http://localhost:3000/transactions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        type: "income",
+        walletId: "56ce32bc-7c2c-4088-b2c3-7563eba16eaf",
+        description: "SomeT",
+        date: new Date(),
+        categoryId: "699ced88-9772-4da6-9d2d-1452c2e8ec12",
+        tagIds: [],
+        subitems: [
+          {
+            name: "Хлеб",
+            amount: "500",
+          },
+          {
+            name: "Пирожок",
+            amount: "100",
+          },
+        ],
+      }),
+    });
+
+    const data = response.json();
+    console.log("login", data);
+  };
+
+  const cat = async () => {
+    const response = await fetch("http://localhost:3000/categories", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      // body: JSON.stringify({
+      //   email: "DenRus38@hotmail.com",
+      //   password: "53779e4c",
+      // }),
+    });
+
+    const data = response.json();
+    console.log("cat", data);
+  };
+
+  const tags = async () => {
+    const response = await fetch("http://localhost:3000/tags", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      // body: JSON.stringify({
+      //   email: "DenRus38@hotmail.com",
+      //   password: "53779e4c",
+      // }),
+    });
+
+    const data = response.json();
+    console.log("tags", data);
+  };
+
   return (
-    <>
+    <PageLayout title="Main" action={<AddTransaction />}>
+      <Button onClick={register}>REGISTER</Button>
+      <Button onClick={login}>Login</Button>
+      <Button onClick={me}>ME</Button>
+      <Button onClick={wallets}>Wallets</Button>
+      <Button onClick={profile}>Profile</Button>
+      <Button onClick={cat}>Cate</Button>
+      <Button onClick={tags}>Tags</Button>
+      <Button onClick={createOneT}>TransOne</Button>
+      <Button onClick={createTwoT}>TransTwo</Button>
       <TransactionGate />
       <div className="mx-auto container">
         <div>
@@ -203,6 +390,8 @@ export default function Home() {
           </div>
         </div>
         <div className="py-4">
+          {groupedTransactions.length <= 0 && <p>Простите, ничего не найдено</p>}
+
           {groupedTransactions.map((group) => {
             const totalAmount = calculateTotalMonthAmount(group);
 
@@ -243,6 +432,6 @@ export default function Home() {
         </div>
       </div>
       <TransactionActionDrawer />
-    </>
+    </PageLayout>
   );
 }

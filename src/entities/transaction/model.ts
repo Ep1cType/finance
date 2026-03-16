@@ -13,26 +13,78 @@ export namespace Transaction {
   }
 
   export interface Item {
-    id: number | string;
-    type: Type;
-    amount: number;
+    categoryId: "699ced88-9772-4da6-9d2d-1452c2e8ec12";
+    imageUrl: null;
+    transferToWalletId: null;
+    transferFromWalletId: null;
+    isRecurring: false;
+    recurringPeriod: null;
+    recurringDay: null;
+    recurringEndDate: null;
+    lastExecuted: null;
+    nextExecution: null;
+    subitems: [
+      {
+        id: "b7488732-413a-4f21-823d-3a3827d65d07";
+        name: "Хлеб";
+        amount: "500";
+        transactionId: "518a9601-015c-4a56-a587-1113071a96cc";
+        createdAt: "2026-01-08T20:51:40.637Z";
+        updatedAt: "2026-01-08T20:51:40.637Z";
+      },
+      {
+        id: "5809d995-a67e-4f70-adbc-921222b69207";
+        name: "Пирожок";
+        amount: "100";
+        transactionId: "518a9601-015c-4a56-a587-1113071a96cc";
+        createdAt: "2026-01-08T20:51:40.637Z";
+        updatedAt: "2026-01-08T20:51:40.637Z";
+      },
+    ];
+    tags: [];
+    category: {
+      id: "699ced88-9772-4da6-9d2d-1452c2e8ec12";
+      name: "Bills";
+      icon: "💡";
+      color: "#FFAAA5";
+      isDefault: true;
+      userId: null;
+      createdAt: "2026-01-08T20:46:46.655Z";
+      updatedAt: "2026-01-08T20:46:46.655Z";
+    };
+
+    id: string;
+    userId: string;
+    createdAt: string;
+    updatedAt: string;
+    amount: string;
+    type: string;
+    // category: string;
+    description: string | null;
     date: string;
-    note: string;
-    category: string;
-    tags: Tag[];
-    recurrence: null | Recurrence;
-    subItems: SubItem[];
+    walletId: string;
+
+    // id: number | string;
+    // type: Type;
+    // amount: number;
+    // date: string;
+    // note: string;
+    // category: string;
+    // tags: Tag[];
+    // recurrence: null | Recurrence;
+    // subItems: SubItem[];
   }
 
   export interface Payload {
     type: Type;
-    amount: number;
+    amount: string;
     date: string;
-    note: string;
-    category: string;
-    tags: Tag["id"][];
-    recurrence: null | Recurrence;
-    subItems: SubItem[];
+    description: string;
+    categoryId: string;
+    // tags: Tag["id"][];
+    walletId: string;
+    // recurrence: null | Recurrence;
+    // subItems: SubItem[];
   }
 
   export interface SubItem {
@@ -45,6 +97,7 @@ export namespace Transaction {
     date: string;
     transactions: Item[];
   }
+
   [];
 
   export const extractDateOnly = (dateString: string) => {
