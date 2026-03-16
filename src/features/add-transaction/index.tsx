@@ -13,7 +13,7 @@ import {
 import { Drawer, DrawerClose, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "components/ui/tabs";
 import { useUnit } from "effector-react";
-import { $isOpenAddTransactionDrawer, toggleDrawer } from "features/add-transaction/store";
+import { transactionDrawer } from "features/add-transaction/store";
 import { X } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useMediaQuery } from "shared/hooks/useMediaQuery";
@@ -29,11 +29,11 @@ const tabsName: Record<TabList, string> = {
 };
 
 export const AddTransaction = () => {
-  const [isOpen, setIsOpen] = useUnit([$isOpenAddTransactionDrawer, toggleDrawer]);
+  const [isOpen, setIsOpen] = useUnit([transactionDrawer.$isOpen, transactionDrawer.toggleDrawer]);
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const onClose = () => {
-    setIsOpen(false);
+    transactionDrawer.closeDrawer();
   };
 
   const tabsContent: Record<TabList, ReactNode> = {
@@ -48,14 +48,14 @@ export const AddTransaction = () => {
         <DialogTrigger asChild>
           <Button>Добавить транзакцию</Button>
         </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="px-2">
+          <DialogHeader className="px-2">
             <DialogTitle>Добавление транзакции</DialogTitle>
             <DialogDescription>Set your daily activity goal.</DialogDescription>
           </DialogHeader>
-          <div className="mx-auto w-full">
+          <div className="w-full no-scrollbar max-h-[80vh] overflow-y-auto">
             {/*TODO: Запоминать последний выбранный вариант*/}
-            <Tabs defaultValue={Object.keys(tabsName)[0]}>
+            <Tabs defaultValue={Object.keys(tabsName)[0]} className="px-2">
               <TabsList className="mb-5">
                 {Object.entries(tabsName).map(([value, name]) => (
                   <TabsTrigger key={value} value={value}>

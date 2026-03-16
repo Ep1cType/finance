@@ -21,7 +21,7 @@ import type { Transaction } from "entity/transaction/model";
 import { $userInfo } from "entity/user/store";
 import { $defaultWallet, $wallets } from "entity/wallet/store";
 import { transactionDrawer } from "features/add-transaction/store";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Plus, Trash2 } from "lucide-react";
 import { type SyntheticEvent, useRef } from "react";
 import { cn } from "shared/lib/utils";
 import { PriceInput } from "shared/ui/price-input";
@@ -59,17 +59,22 @@ export const IncomeExpenseForm = ({ onClose, type }: Props) => {
   const onCreateClick = async (event: SyntheticEvent) => {
     event.preventDefault();
 
+    const validSubitems = formState.subitems
+      .filter((subitem) => subitem.name.trim() && subitem.amount)
+      .map((subitem) => ({ ...subitem, amount: String(subitem.amount) }));
+
     const newTransaction: Transaction.Payload = {
       // tags: formState.selectedTags,
       amount: String(formState.amount),
-      type: type,
+      type,
       // note: formState.note,
       categoryId: formState.category,
       // recurrence: null,
       // subItems: [],
       date: formState.date.toISOString(),
       description: formState.note,
-      walletId: formState.wallet,
+      walletId: formState.wallet || defaultWallet?.id,
+      subitems: validSubitems.length > 0 ? validSubitems : undefined,
     };
 
     submitForm(newTransaction);
@@ -85,7 +90,7 @@ export const IncomeExpenseForm = ({ onClose, type }: Props) => {
     <div className="space-y-4">
       {/* Кошелёк */}
       {userInfo && (
-        <div className="grid gap-3">
+        <div className="grid gap-2.5">
           <Label htmlFor="wallet">Кошелёк</Label>
           <Select
             value={formState.wallet || defaultWallet?.id}
@@ -119,7 +124,7 @@ export const IncomeExpenseForm = ({ onClose, type }: Props) => {
       />
 
       {/* Описание */}
-      <div className="grid gap-3">
+      <div className="grid gap-2.5">
         <Label htmlFor="description">Описание</Label>
         <Input
           id="description"
@@ -136,7 +141,7 @@ export const IncomeExpenseForm = ({ onClose, type }: Props) => {
       </div>
 
       {/* Ярлык */}
-      <div className="grid gap-3">
+      <div className="grid gap-2.5">
         <Label htmlFor="label">Ярлык</Label>
         <ul className="flex overflow-x-auto gap-1 py-2 scrollbar-hidden">
           {userInfo?.tags.map((tag) => (
@@ -154,7 +159,7 @@ export const IncomeExpenseForm = ({ onClose, type }: Props) => {
       </div>
 
       {/* Категория */}
-      <div className="grid gap-3">
+      <div className="grid gap-2.5">
         <Label htmlFor="category">Категория</Label>
         <Select value={formState.category} onValueChange={(value) => transactionDrawer.setCategory(value)}>
           <SelectTrigger id="category" ref={categoryRef} className="w-full">
@@ -173,8 +178,79 @@ export const IncomeExpenseForm = ({ onClose, type }: Props) => {
         </Select>
       </div>
 
+      {/* НОВыЙ КОНТЕНТ */}
+      <div className="grid gap-2.5" aria-describedby="subitems-description">
+        <p className="text-sm font-medium">Подпозиции</p>
+        <p id="subitems-description" className="text-xs text-muted-foreground">
+          Необязательно. Добавьте, если хотите разбить транзакцию на части.
+        </p>
+
+        {formState.subitems.length === 0 && (
+          <p className="text-sm text-muted-foreground" aria-live="polite">
+            Подпозиций пока нет.
+          </p>
+        )}
+
+        {formState.subitems.map((subitem, index) => (
+          <div key={`subitem-${index}`} className="grid grid-cols-[1fr_auto] gap-2 items-end">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor={`subitem-name-${index}`}>Название #{index + 1}</Label>
+                <Input
+                  id={`subitem-name-${index}`}
+                  value={subitem.name}
+                  placeholder={index === 0 ? "Например, Продукты" : ""}
+                  onChange={(event) =>
+                    transactionDrawer.updateSubitem({ index, field: "name", value: event.target.value })
+                  }
+                />
+              </div>
+              <div className="grid gap-1.5">
+                {/*<Label htmlFor={`subitem-amount-${index}`}>Сумма #{index + 1}</Label>*/}
+                <PriceInput
+                  // id={`subitem-amount-${index}`}
+                  label={`Сумма #${index + 1}`}
+                  currency="₽"
+                  value={subitem.amount}
+                  onChange={(value) => transactionDrawer.updateSubitem({ index, field: "amount", value: value })}
+                  enterKeyHint="next"
+                  onEnterPress={() => {}}
+                />
+                {/*<Input*/}
+                {/*  id={`subitem-amount-${index}`}*/}
+                {/*  type="number"*/}
+                {/*  inputMode="decimal"*/}
+                {/*  min="0"*/}
+                {/*  step="0.01"*/}
+                {/*  value={subitem.amount}*/}
+                {/*  placeholder={index === 0 ? "0" : ""}*/}
+                {/*  onChange={(event) =>*/}
+                {/*    transactionDrawer.updateSubitem({ index, field: "amount", value: event.target.value })*/}
+                {/*  }*/}
+                {/*/>*/}
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => transactionDrawer.removeSubitem(index)}
+              aria-label={`Удалить подпозицию ${index + 1}`}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </div>
+        ))}
+
+        <Button type="button" variant="outline" className="w-full" onClick={() => transactionDrawer.addSubitem()}>
+          <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+          Добавить подпозицию
+        </Button>
+      </div>
+      {/* НОВыЙ КОНТЕНТ */}
+
       {/* Дата */}
-      <div className="grid gap-3">
+      <div className="grid gap-2.5">
         <Label htmlFor="date">Дата</Label>
         <Popover>
           <PopoverTrigger id="date" asChild>
@@ -198,7 +274,7 @@ export const IncomeExpenseForm = ({ onClose, type }: Props) => {
         </Popover>
       </div>
 
-      {/*<div className="grid gap-3">*/}
+      {/*<div className="grid gap-2.5">*/}
       {/*  <Label htmlFor="subTransaction">Подтранзакция</Label>*/}
       {/*  <Input*/}
       {/*    id="subTransaction"*/}

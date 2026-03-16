@@ -1,7 +1,6 @@
 import { createEffect, createStore, sample } from "effector";
 import { createGate } from "effector-react";
 import type { Wallet } from "entity/wallet/model";
-import { setWallet } from "features/add-transaction/store";
 import { fetchWrapper } from "shared/api/fetchWrapper";
 //
 //
@@ -83,12 +82,12 @@ $wallets
     }
   });
 
-sample({
-  clock: $wallets,
-  fn: (wallets) => {
-    const defaultWallet = wallets.find((w) => w.isDefault);
-    if (!defaultWallet) return "";
-    return defaultWallet.id;
-  },
-  target: setWallet,
-});
+// sample({
+//   clock: $wallets,
+//   fn: (wallets) => {
+//     const defaultWallet = wallets.find((w) => w.isDefault);
+//     if (!defaultWallet) return "";
+//     return defaultWallet.id;
+//   },
+//   target: setWallet,
+// });

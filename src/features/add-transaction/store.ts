@@ -10,6 +10,7 @@ type TransactionFormState = {
   note: string;
   category: string;
   date: Date;
+  subitems: Transaction.SubItemPayload[];
 };
 
 // const initialIncomeExpenseTransaction: IncomeExpenseTransaction = {
@@ -32,12 +33,14 @@ const drawer = extendFormDrawer(
       note: "",
       date: new Date(),
       selectedTags: [],
+      subitems: [],
     },
     submitEffect: async (payload) => {
       await addTransactionFx(payload);
     },
     resetOnSuccess: true,
     autoCloseOnSuccess: true,
+    resetOnClose: true,
   }),
 );
 
@@ -50,6 +53,9 @@ export const transactionDrawer = {
   setWallet: drawer.createFieldSetter("wallet"),
   toggleTag: drawer.domain.createEvent<Transaction.Tag["id"]>(),
   setIncomeExpenseData: drawer.domain.createEvent<Omit<TransactionFormState, "wallet">>(),
+  addSubitem: drawer.domain.createEvent(),
+  updateSubitem: drawer.domain.createEvent<{ index: number; field: "name" | "amount"; value: string }>(),
+  removeSubitem: drawer.domain.createEvent<number>(),
 };
 
 transactionDrawer.$formState.on(transactionDrawer.toggleTag, (state, tagId) => ({
@@ -61,20 +67,19 @@ transactionDrawer.$formState.on(transactionDrawer.toggleTag, (state, tagId) => (
 
 transactionDrawer.$formState.on(transactionDrawer.setIncomeExpenseData, (state, data) => ({ ...state, ...data }));
 
-// sample({
-//   clock: $userInfo,
-//   filter: (userInfo) => userInfo !== null && userInfo.wallets.length > 0,
-//   fn: (userInfo) => {
-//     String(userInfo!.wallets[0].id);
-//   },
-//   target: setWallet,
-// });
+transactionDrawer.$formState.on(transactionDrawer.addSubitem, (state) => ({
+  ...state,
+  subitems: [...state.subitems, { name: "", amount: "" }],
+}));
 
-// Optional: Form validation
-// export const $isFormValid = $incomeExpenseFormState.map((state) => state.amount > 0 && state.category !== "");
+transactionDrawer.$formState.on(transactionDrawer.updateSubitem, (state, payload) => ({
+  ...state,
+  subitems: state.subitems.map((subitem, index) =>
+    index === payload.index ? { ...subitem, [payload.field]: payload.value } : subitem,
+  ),
+}));
 
-// Optional: Error handling
-// export const $formError = createStore<string | null>(null)
-//   .on(submitFormFx.failData, (_, error) => error.message)
-//   .reset(submitForm)
-//   .reset(submitFormFx.doneData);
+transactionDrawer.$formState.on(transactionDrawer.removeSubitem, (state, indexToRemove) => ({
+  ...state,
+  subitems: state.subitems.filter((_, index) => index !== indexToRemove),
+}));

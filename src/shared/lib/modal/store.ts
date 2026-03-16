@@ -18,6 +18,7 @@ interface CreateFormDrawerConfig<FormData, SubmitPayload, SubmitResult, SubmitEr
   submitEffect: (payload: SubmitPayload) => Promise<SubmitResult>;
   autoCloseOnSuccess?: boolean;
   resetOnSuccess?: boolean;
+  resetOnClose?: boolean;
 }
 
 /**
@@ -56,6 +57,7 @@ export function createFormDrawer<FormData, SubmitPayload, SubmitResult = void, S
     submitEffect,
     autoCloseOnSuccess = true,
     resetOnSuccess = true,
+    resetOnClose = false,
   } = config;
 
   // Создаём domain
@@ -121,6 +123,19 @@ export function createFormDrawer<FormData, SubmitPayload, SubmitResult = void, S
     sample({
       clock: submitFormFx.doneData,
       target: closeDrawer,
+    });
+  }
+
+  if (resetOnClose) {
+    sample({
+      clock: closeDrawer,
+      target: resetForm,
+    });
+
+    sample({
+      clock: toggleDrawer,
+      filter: (isOpen) => !isOpen,
+      target: resetForm,
     });
   }
 
