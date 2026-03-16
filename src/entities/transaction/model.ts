@@ -7,6 +7,8 @@ export namespace Transaction {
     nextDate: string;
   }
 
+  type RecurringPeriod = "daily" | "weekly" | "monthly" | "yearly";
+
   export interface Tag {
     id: string | number;
     name: string;
@@ -76,15 +78,35 @@ export namespace Transaction {
   }
 
   export interface Payload {
+    amount?: string;
     type: Type;
-    amount: string;
-    date: string;
-    description: string;
     categoryId: string;
-    // tags: Tag["id"][];
+    description?: string;
+    date?: string;
     walletId: string;
+    subitems?: SubItemPayload[];
+    tagIds?: string[];
+    imageUrl?: string;
+
+    // tags: Tag["id"][];
     // recurrence: null | Recurrence;
     // subItems: SubItem[];
+  }
+
+  export interface TransferPayload extends Payload {
+    transferToWalletId?: string;
+  }
+
+  export interface RecurringPayload extends TransferPayload {
+    isRecurring?: boolean;
+    recurringPeriod?: RecurringPeriod;
+    recurringDay?: number;
+    recurringEndDate?: Date;
+  }
+
+  export interface SubItemPayload {
+    name: string;
+    amount: string;
   }
 
   export interface SubItem {
@@ -97,8 +119,6 @@ export namespace Transaction {
     date: string;
     transactions: Item[];
   }
-
-  [];
 
   export const extractDateOnly = (dateString: string) => {
     const d = new Date(dateString);

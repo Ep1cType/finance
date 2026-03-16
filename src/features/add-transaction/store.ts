@@ -1,6 +1,5 @@
 import type { Transaction } from "entity/transaction/model";
 import { addTransactionFx } from "entity/transaction/store";
-import { $userInfo } from "entity/user/store";
 import type { Wallet } from "entity/wallet/model";
 import { createFormDrawer, extendFormDrawer } from "shared/lib/modal/store";
 
