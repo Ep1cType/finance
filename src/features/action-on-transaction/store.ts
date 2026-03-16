@@ -1,7 +1,6 @@
 import { createEvent, createStore, sample } from "effector";
 import type { Transaction } from "entity/transaction/model";
 import { removeTransactionFx } from "entity/transaction/store";
-import { setIncomeExpenseData, toggleDrawer } from "features/add-transaction/store";
 
 type DrawerState = {
   isOpen: boolean;
@@ -39,16 +38,17 @@ sample({
     closeActionDrawer();
   }
 
-  if (action === "edit") {
-    setIncomeExpenseData({
-      date: new Date(transaction.date),
-      amount: transaction.amount,
-      category: transaction.category,
-      note: transaction.note,
-      selectedTags: transaction.tags.map((tag) => tag.id),
-    });
-
-    toggleDrawer(true);
-    closeActionDrawer();
-  }
+  //TODO: action drawer
+  // if (action === "edit") {
+  //   transactionDrawer.setIncomeExpenseData({
+  //     date: new Date(transaction.date),
+  //     amount: transaction.amount,
+  //     category: transaction.category,
+  //     note: transaction.note,
+  //     selectedTags: transaction.tags.map((tag) => tag.id),
+  //   });
+  //
+  //   toggleDrawer(true);
+  //   closeActionDrawer();
+  // }
 });
