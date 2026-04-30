@@ -23,9 +23,11 @@ interface MonthViewProps {
   today: Date;
   events: CalendarEvent[];
   onEventClick: (id: string) => void;
+  onDayClick?: (day: Date) => void;
+  selectedDay?: Date | null;
 }
 
-export function MonthView({ cursor, today, events, onEventClick }: MonthViewProps) {
+export function MonthView({ cursor, today, events, onEventClick, onDayClick, selectedDay }: MonthViewProps) {
   const y = cursor.getFullYear();
   const m = cursor.getMonth();
   const start = startOfWeek(new Date(y, m, 1));
@@ -59,6 +61,7 @@ export function MonthView({ cursor, today, events, onEventClick }: MonthViewProp
               const day = addDays(wkStart, i);
               const inMonth = day.getMonth() === m;
               const isToday = sameDay(day, today);
+              const isSelected = !!selectedDay && sameDay(day, selectedDay);
 
               const single = eventsForDay(events, day).filter((e) => !isMultiDay(e));
               const dayMultiHidden = laned.filter(
@@ -73,20 +76,26 @@ export function MonthView({ cursor, today, events, onEventClick }: MonthViewProp
                   key={i}
                   className={`relative flex min-h-[90px] flex-col border-r-[0.5px] border-r-gray-200 px-[3px] pb-1 pt-6 last:border-r-0 ${
                     inMonth ? "" : "bg-gray-50"
-                  }`}
+                  } ${isSelected ? "bg-[#185FA5]/5" : ""}`}
                 >
-                  {/* Номер дня */}
-                  <span
+                  {/* Номер дня — кликабельный, открывает панель деталей */}
+                  <button
+                    type="button"
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      onDayClick?.(day);
+                    }}
+                    aria-label={`Открыть события за ${day.getDate()}`}
                     className={
-                      isToday
-                        ? "absolute left-1 top-[3px] inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#185FA5] text-[11px] font-medium text-white"
-                        : `absolute left-1.5 top-1 text-[11px] font-medium ${
+                      isToday || isSelected
+                        ? "absolute left-1 top-[3px] inline-flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-[#185FA5] text-[11px] font-medium text-white hover:bg-[#134c84]"
+                        : `absolute left-1.5 top-1 cursor-pointer rounded px-1 text-[11px] font-medium hover:bg-gray-200 ${
                             inMonth ? "text-gray-900" : "text-gray-500"
                           }`
                     }
                   >
                     {day.getDate()}
-                  </span>
+                  </button>
 
                   {/* Однодневные события */}
                   <div className="flex flex-col gap-px" style={{ marginTop: `${laneOffset}px` }}>
@@ -106,7 +115,16 @@ export function MonthView({ cursor, today, events, onEventClick }: MonthViewProp
                       </div>
                     ))}
                     {hidden > 0 && (
-                      <div className="cursor-pointer px-[5px] text-[11px] text-gray-500">+{hidden} ещё</div>
+                      <button
+                        type="button"
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          onDayClick?.(day);
+                        }}
+                        className="cursor-pointer rounded px-[5px] text-left text-[11px] text-gray-500 hover:bg-gray-200 hover:text-gray-900"
+                      >
+                        +{hidden} ещё
+                      </button>
                     )}
                   </div>
                 </div>

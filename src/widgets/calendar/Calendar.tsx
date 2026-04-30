@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react";
 
 import { COLOR_DOT_CLASSES, MONTHS, MONTHS_GEN, WEEKDAYS } from "./constants";
+import { DayDetailsPanel } from "./DayDetailsPanel";
 import { DayView } from "./DayView";
 import { EventModal } from "./EventModal";
 import { MonthView } from "./MonthView";
 import type { CalendarEvent, CalendarView } from "./types";
-import { addDays, startOfWeek } from "./utils";
+import { addDays, sameDay, startOfWeek } from "./utils";
 import { WeekView } from "./WeekView";
 
 interface CalendarProps {
@@ -34,8 +35,17 @@ export function Calendar({
   const [cursor, setCursor] = useState<Date>(initialCursor ?? new Date());
   const [view, setView] = useState<CalendarView>(initialView);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
   const editingEvent = useMemo(() => events.find((e) => e.id === editingId) ?? null, [events, editingId]);
+
+  // Боковая панель доступна только в месячном виде
+  const showDayPanel = view === "month" && selectedDay !== null;
+
+  const handleDayClick = (day: Date) => {
+    // Повторный клик по тому же дню — закрывает панель
+    setSelectedDay((prev) => (prev && sameDay(prev, day) ? null : day));
+  };
 
   // Заголовок по виду
   const title = useMemo(() => {
@@ -144,12 +154,37 @@ export function Calendar({
           <LegendItem color={COLOR_DOT_CLASSES["task-pink"]} label="Интервью" />
         </div>
 
-        {/* Тело */}
-        {view === "month" && (
-          <MonthView cursor={cursor} today={today} events={events} onEventClick={handleEventClick} />
-        )}
-        {view === "week" && <WeekView cursor={cursor} today={today} events={events} onEventClick={handleEventClick} />}
-        {view === "day" && <DayView cursor={cursor} today={today} events={events} onEventClick={handleEventClick} />}
+        {/* Тело: в месячном виде с открытой панелью — split layout */}
+        <div className={showDayPanel ? "flex flex-col gap-3 lg:flex-row lg:items-start" : ""}>
+          <div className="min-w-0 flex-1">
+            {view === "month" && (
+              <MonthView
+                cursor={cursor}
+                today={today}
+                events={events}
+                onEventClick={handleEventClick}
+                onDayClick={handleDayClick}
+                selectedDay={selectedDay}
+              />
+            )}
+            {view === "week" && (
+              <WeekView cursor={cursor} today={today} events={events} onEventClick={handleEventClick} />
+            )}
+            {view === "day" && (
+              <DayView cursor={cursor} today={today} events={events} onEventClick={handleEventClick} />
+            )}
+          </div>
+
+          {showDayPanel && selectedDay && (
+            <DayDetailsPanel
+              day={selectedDay}
+              events={events}
+              today={today}
+              onClose={() => setSelectedDay(null)}
+              onEventClick={handleEventClick}
+            />
+          )}
+        </div>
       </div>
 
       {/* Модалка */}
