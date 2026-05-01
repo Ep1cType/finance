@@ -32,7 +32,7 @@ export function EventModal({ event, onClose, onSave }: EventModalProps) {
     <div
       role="dialog"
       aria-modal="true"
-      className="absolute inset-0 z-[100] flex items-center justify-center rounded-md bg-black/45 p-5"
+      className="absolute inset-0 z-[1000] flex items-center justify-center rounded-md bg-black/45 p-5"
       onClick={handleBackdropClick}
     >
       <div className="w-full max-w-[380px] rounded-lg border-[0.5px] border-gray-200 bg-white px-[18px] py-4">

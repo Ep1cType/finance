@@ -74,6 +74,19 @@ export const COLOR_OPTIONS: { value: EventColor; label: string }[] = [
 ];
 
 /** Часовые границы дневной/недельной сетки и высота слота в px */
-export const HOUR_START = 8;
-export const HOUR_END = 20;
+export const HOUR_START = 0;
+export const HOUR_END = 23;
 export const SLOT_HEIGHT = 36;
+
+/**
+ * Высота скроллируемой области с часовой сеткой.
+ * Полная сетка = (HOUR_END - HOUR_START + 1) * SLOT_HEIGHT = 864px.
+ * Здесь — видимая часть, дальше идёт скролл.
+ */
+export const BODY_MAX_HEIGHT = 540; // ≈ 15 часовых слотов
+
+/**
+ * К какому часу автоматически скроллится сетка при монтировании /
+ * смене даты. 7 — стандарт Google Calendar (видны утренние события).
+ */
+export const DEFAULT_SCROLL_HOUR = 7;

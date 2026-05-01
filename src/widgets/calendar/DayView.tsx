@@ -1,7 +1,8 @@
-import { COLOR_CLASSES, HOUR_END, HOUR_START, MONTHS_GEN, SLOT_HEIGHT, WEEKDAYS } from "./constants";
+import { BODY_MAX_HEIGHT, COLOR_CLASSES, HOUR_END, HOUR_START, MONTHS_GEN, SLOT_HEIGHT, WEEKDAYS } from "./constants";
 import { OverflowBadgeCard } from "./OverflowBadge";
 import { TimedEventCard } from "./TimedEventCard";
 import type { CalendarEvent } from "./types";
+import { useScrollToHour } from "./useScrollToHour";
 import type { OverflowBadge } from "./utils";
 import { eventsForDay, isMultiDay, packEvents, sameDay } from "./utils";
 
@@ -31,6 +32,12 @@ export function DayView({ cursor, today, events, onEventClick, maxCols = 6, onOv
   for (let h = HOUR_START; h <= HOUR_END; h++) hours.push(h);
 
   const weekdayLabel = WEEKDAYS[(d.getDay() + 6) % 7];
+
+  const scrollRef = useScrollToHour({
+    resetKey: d.getTime(),
+    today,
+    visibleDays: [d],
+  });
 
   return (
     <div className="overflow-hidden rounded-md border-[0.5px] border-gray-200 bg-white">
@@ -75,35 +82,37 @@ export function DayView({ cursor, today, events, onEventClick, maxCols = 6, onOv
         </div>
       )}
 
-      {/* Тело */}
-      <div className="relative grid" style={gridStyle}>
-        {/* Часы */}
-        <div className="border-r-[0.5px] border-r-gray-200">
-          {hours.map((h) => (
-            <div
-              key={h}
-              className="border-b-[0.5px] border-b-gray-200 px-1.5 py-px text-right text-[11px] text-gray-500"
-              style={{ height: `${SLOT_HEIGHT}px` }}
-            >
-              {h}:00
-            </div>
-          ))}
-        </div>
+      {/* Тело: скроллится вертикально */}
+      <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: `${BODY_MAX_HEIGHT}px` }}>
+        <div className="relative grid" style={gridStyle}>
+          {/* Часы */}
+          <div className="border-r-[0.5px] border-r-gray-200">
+            {hours.map((h) => (
+              <div
+                key={h}
+                className="border-b-[0.5px] border-b-gray-200 px-1.5 py-px text-right text-[11px] text-gray-500"
+                style={{ height: `${SLOT_HEIGHT}px` }}
+              >
+                {h}:00
+              </div>
+            ))}
+          </div>
 
-        {/* Колонка дня */}
-        <div className="relative border-r-[0.5px] border-r-gray-200 last:border-r-0">
-          {hours.map((h) => (
-            <div key={h} className="border-b-[0.5px] border-b-gray-200" style={{ height: `${SLOT_HEIGHT}px` }} />
-          ))}
+          {/* Колонка дня */}
+          <div className="relative border-r-[0.5px] border-r-gray-200 last:border-r-0">
+            {hours.map((h) => (
+              <div key={h} className="border-b-[0.5px] border-b-gray-200" style={{ height: `${SLOT_HEIGHT}px` }} />
+            ))}
 
-          {packed.map((e) => (
-            <TimedEventCard key={e.id} event={e} onClick={onEventClick} />
-          ))}
+            {packed.map((e) => (
+              <TimedEventCard key={e.id} event={e} onClick={onEventClick} />
+            ))}
 
-          {/* Бейджи переполнения */}
-          {overflows.map((b) => (
-            <OverflowBadgeCard key={b.id} badge={b} onClick={(badge) => onOverflowClick?.(d, badge)} />
-          ))}
+            {/* Бейджи переполнения */}
+            {overflows.map((b) => (
+              <OverflowBadgeCard key={b.id} badge={b} onClick={(badge) => onOverflowClick?.(d, badge)} />
+            ))}
+          </div>
         </div>
       </div>
     </div>

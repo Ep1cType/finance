@@ -46,7 +46,7 @@ export const sampleEvents: CalendarEvent[] = [
   {
     id: "6",
     title: "Командировка в Питер",
-    start: D(2026, 4, 28),
+    start: D(2026, 4, 26),
     end: D(2026, 4, 30, 23, 59),
     color: "task-green",
     speaker: "К. Орлов",
@@ -214,8 +214,10 @@ export const sampleEvents: CalendarEvent[] = [
   {
     id: "41",
     title: "Сессия монтажа",
-    start: D(2026, 4, 30, 9, 30),
-    end: D(2026, 4, 30, 12, 0),
+    start: D(2026, 4, 30),
+    end: D(2026, 4, 30, 23, 59),
+    // start: D(2026, 4, 30, 9, 30),
+    // end: D(2026, 4, 30, 12, 0),
     color: "task-yellow",
     speaker: "Д. Смирнов",
   },
@@ -381,4 +383,4 @@ export const sampleEvents: CalendarEvent[] = [
 ];
 
 /** Якорь «сегодня» — соответствует исходному прототипу */
-export const TODAY_ANCHOR = new Date(2026, 3, 30);
+export const TODAY_ANCHOR = new Date(2026, 3, 30, 14, 30);

@@ -1,7 +1,8 @@
-import { COLOR_CLASSES, HOUR_END, HOUR_START, SLOT_HEIGHT, WEEKDAYS } from "./constants";
+import { BODY_MAX_HEIGHT, COLOR_CLASSES, HOUR_END, HOUR_START, SLOT_HEIGHT, WEEKDAYS } from "./constants";
 import { OverflowBadgeCard } from "./OverflowBadge";
 import { TimedEventCard } from "./TimedEventCard";
 import type { CalendarEvent } from "./types";
+import { useScrollToHour } from "./useScrollToHour";
 import type { OverflowBadge } from "./utils";
 import { addDays, dayDiff, eventsForDay, isMultiDay, packEvents, packLanes, sameDay, startOfWeek } from "./utils";
 
@@ -34,6 +35,13 @@ export function WeekView({ cursor, today, events, onEventClick, maxCols = 4, onO
 
   const hours: number[] = [];
   for (let h = HOUR_START; h <= HOUR_END; h++) hours.push(h);
+
+  const visibleDays = Array.from({ length: 7 }).map((_, i) => addDays(start, i));
+  const scrollRef = useScrollToHour({
+    resetKey: start.getTime(),
+    today,
+    visibleDays,
+  });
 
   return (
     <div className="overflow-hidden rounded-md border-[0.5px] border-gray-200 bg-white">
@@ -92,46 +100,48 @@ export function WeekView({ cursor, today, events, onEventClick, maxCols = 4, onO
         })}
       </div>
 
-      {/* Тело: часы слева + 7 колонок дней */}
-      <div className="relative grid" style={gridStyle}>
-        {/* Колонка часов */}
-        <div className="border-r-[0.5px] border-r-gray-200">
-          {hours.map((h) => (
-            <div
-              key={h}
-              className="border-b-[0.5px] border-b-gray-200 px-1.5 py-px text-right text-[11px] text-gray-500"
-              style={{ height: `${SLOT_HEIGHT}px` }}
-            >
-              {h}:00
-            </div>
-          ))}
+      {/* Тело: часы слева + 7 колонок дней. Скроллится вертикально. */}
+      <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: `${BODY_MAX_HEIGHT}px` }}>
+        <div className="relative grid" style={gridStyle}>
+          {/* Колонка часов */}
+          <div className="border-r-[0.5px] border-r-gray-200">
+            {hours.map((h) => (
+              <div
+                key={h}
+                className="border-b-[0.5px] border-b-gray-200 px-1.5 py-px text-right text-[11px] text-gray-500"
+                style={{ height: `${SLOT_HEIGHT}px` }}
+              >
+                {h}:00
+              </div>
+            ))}
+          </div>
+
+          {/* Колонки дней */}
+          {Array.from({ length: 7 }).map((_, i) => {
+            const d = addDays(start, i);
+            const dayEvts = eventsForDay(events, d).filter((e) => !isMultiDay(e));
+            const { events: packed, overflows } = packEvents(dayEvts, { maxCols });
+
+            return (
+              <div key={i} className="relative border-r-[0.5px] border-r-gray-200 last:border-r-0">
+                {/* Часовые слоты */}
+                {hours.map((h) => (
+                  <div key={h} className="border-b-[0.5px] border-b-gray-200" style={{ height: `${SLOT_HEIGHT}px` }} />
+                ))}
+
+                {/* События дня */}
+                {packed.map((e) => (
+                  <TimedEventCard key={e.id} event={e} onClick={onEventClick} />
+                ))}
+
+                {/* Бейджи переполнения */}
+                {overflows.map((b) => (
+                  <OverflowBadgeCard key={b.id} badge={b} onClick={(badge) => onOverflowClick?.(d, badge)} />
+                ))}
+              </div>
+            );
+          })}
         </div>
-
-        {/* Колонки дней */}
-        {Array.from({ length: 7 }).map((_, i) => {
-          const d = addDays(start, i);
-          const dayEvts = eventsForDay(events, d).filter((e) => !isMultiDay(e));
-          const { events: packed, overflows } = packEvents(dayEvts, { maxCols });
-
-          return (
-            <div key={i} className="relative border-r-[0.5px] border-r-gray-200 last:border-r-0">
-              {/* Часовые слоты */}
-              {hours.map((h) => (
-                <div key={h} className="border-b-[0.5px] border-b-gray-200" style={{ height: `${SLOT_HEIGHT}px` }} />
-              ))}
-
-              {/* События дня */}
-              {packed.map((e) => (
-                <TimedEventCard key={e.id} event={e} onClick={onEventClick} />
-              ))}
-
-              {/* Бейджи переполнения */}
-              {overflows.map((b) => (
-                <OverflowBadgeCard key={b.id} badge={b} onClick={(badge) => onOverflowClick?.(d, badge)} />
-              ))}
-            </div>
-          );
-        })}
       </div>
     </div>
   );
