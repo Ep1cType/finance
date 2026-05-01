@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo } from "react";
 
 import { COLOR_CLASSES, MONTHS_GEN, WEEKDAYS } from "./constants";

@@ -65,6 +65,33 @@ export const packLanes = (evts: CalendarEvent[]): { events: LanedEvent[]; n: num
 };
 
 /**
+ * Бейдж «+N» для зоны переполнения. Появляется когда у кластера колонок
+ * больше, чем `maxCols`: события из «лишних» колонок не отрисовываются
+ * как карточки, вместо них в последней видимой колонке показывается бейдж
+ * со счётчиком и временным диапазоном скрытых событий.
+ */
+export interface OverflowBadge {
+  /** Уникальный ID для React key */
+  id: string;
+  /** Колонка, в которой показывается бейдж (всегда `clusterCols - 1`) */
+  col: number;
+  /** Видимое число колонок кластера (= maxCols) */
+  clusterCols: number;
+  /** Временной диапазон сегмента переполнения */
+  start: Date;
+  end: Date;
+  /** Сколько событий скрыто в этом сегменте */
+  count: number;
+  /** ID скрытых событий — пригодятся, если нужно отфильтровать список */
+  hiddenIds: string[];
+}
+
+export interface PackEventsResult {
+  events: PackedEvent[];
+  overflows: OverflowBadge[];
+}
+
+/**
  * Layout пересекающихся событий по образцу Google Calendar / FullCalendar.
  *
  * 1. Кластеризация: события объединяются в кластер, если связаны цепочкой
@@ -74,9 +101,16 @@ export const packLanes = (evts: CalendarEvent[]): { events: LanedEvent[]; n: num
  *    в правые колонки, пока там нет пересекающихся с ним событий. Это даёт
  *    одиночному событию шанс занять всю ширину, даже если рядом по времени
  *    есть кластер с большим числом колонок.
+ *
+ * Если задан `options.maxCols` и кластеру нужно больше колонок:
+ *   - первые `maxCols - 1` колонок отрисовываются как обычно;
+ *   - события в оставшихся колонках группируются по непрерывным временным
+ *     сегментам и заменяются на `OverflowBadge` («+N»).
  */
-export const packEvents = (evts: CalendarEvent[]): PackedEvent[] => {
-  if (evts.length === 0) return [];
+export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }): PackEventsResult => {
+  if (evts.length === 0) return { events: [], overflows: [] };
+
+  const maxCols = options?.maxCols ?? Infinity;
 
   // Сортировка: по началу, при равенстве — длиннее раньше
   const sorted = [...evts].sort((a, b) => a.start.getTime() - b.start.getTime() || b.end.getTime() - a.end.getTime());
@@ -97,8 +131,10 @@ export const packEvents = (evts: CalendarEvent[]): PackedEvent[] => {
   }
   if (current.length) clusters.push(current);
 
-  // ── 2 + 3. Column packing и расширение для каждого кластера ─────
+  // ── 2 + 3 + overflow для каждого кластера ───────────────────────
   const result: PackedEvent[] = [];
+  const overflows: OverflowBadge[] = [];
+
   for (const cluster of clusters) {
     const cols: CalendarEvent[][] = [];
     const colOf = new Map<string, number>();
@@ -120,13 +156,27 @@ export const packEvents = (evts: CalendarEvent[]): PackedEvent[] => {
       }
     }
 
-    const totalCols = cols.length;
+    const naturalCols = cols.length;
+    // Если переполнение есть — показываем maxCols, последняя колонка
+    // отдана под бейджи. Иначе — все колонки видимы.
+    const isOverflow = naturalCols > maxCols;
+    const visibleCols = isOverflow ? maxCols : naturalCols;
+    const overflowColIndex = visibleCols - 1; // куда складывать бейджи
 
+    // Какие события скрываются (попадают в overflow)?
+    const hiddenEvents: CalendarEvent[] = [];
     for (const e of cluster) {
       const myCol = colOf.get(e.id)!;
+      if (isOverflow && myCol >= overflowColIndex) {
+        hiddenEvents.push(e);
+        continue;
+      }
+
+      // Span: для overflow-режима ограничиваем расширение, чтобы события
+      // из видимых колонок не залезали в overflow-колонку.
+      const spanLimit = isOverflow ? overflowColIndex : naturalCols;
       let span = 1;
-      // Расширяем вправо пока нет пересечений
-      for (let next = myCol + 1; next < totalCols; next++) {
+      for (let next = myCol + 1; next < spanLimit; next++) {
         const conflict = cols[next].some(
           (o) => Math.max(o.start.getTime(), e.start.getTime()) < Math.min(o.end.getTime(), e.end.getTime()),
         );
@@ -137,12 +187,48 @@ export const packEvents = (evts: CalendarEvent[]): PackedEvent[] => {
         ...e,
         _col: myCol,
         _span: span,
-        _clusterCols: totalCols,
+        _clusterCols: visibleCols,
       });
+    }
+
+    // Группируем скрытые события в непрерывные временные сегменты.
+    // События отсортированы по start (берутся из cluster, который из sorted).
+    if (hiddenEvents.length > 0) {
+      const sortedHidden = [...hiddenEvents].sort((a, b) => a.start.getTime() - b.start.getTime());
+      let segStart = sortedHidden[0].start;
+      let segEnd = sortedHidden[0].end;
+      let segIds: string[] = [sortedHidden[0].id];
+
+      const flush = () => {
+        overflows.push({
+          id: `ovf-${segIds[0]}-${segIds.length}`,
+          col: overflowColIndex,
+          clusterCols: visibleCols,
+          start: segStart,
+          end: segEnd,
+          count: segIds.length,
+          hiddenIds: segIds,
+        });
+      };
+
+      for (let i = 1; i < sortedHidden.length; i++) {
+        const e = sortedHidden[i];
+        if (e.start.getTime() < segEnd.getTime()) {
+          // расширяем сегмент
+          segIds.push(e.id);
+          if (e.end.getTime() > segEnd.getTime()) segEnd = e.end;
+        } else {
+          flush();
+          segStart = e.start;
+          segEnd = e.end;
+          segIds = [e.id];
+        }
+      }
+      flush();
     }
   }
 
-  return result;
+  return { events: result, overflows };
 };
 
 /** Форматирование даты для <input type="datetime-local"> */

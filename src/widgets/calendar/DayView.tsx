@@ -1,8 +1,8 @@
-"use client";
-
 import { COLOR_CLASSES, HOUR_END, HOUR_START, MONTHS_GEN, SLOT_HEIGHT, WEEKDAYS } from "./constants";
+import { OverflowBadgeCard } from "./OverflowBadge";
 import { TimedEventCard } from "./TimedEventCard";
 import type { CalendarEvent } from "./types";
+import type { OverflowBadge } from "./utils";
 import { eventsForDay, isMultiDay, packEvents, sameDay } from "./utils";
 
 interface DayViewProps {
@@ -10,14 +10,20 @@ interface DayViewProps {
   today: Date;
   events: CalendarEvent[];
   onEventClick: (id: string) => void;
+  /**
+   * Максимум видимых колонок. По умолчанию 6 — в day view колонка широкая,
+   * можно показать больше событий бок о бок.
+   */
+  maxCols?: number;
+  onOverflowClick?: (day: Date, badge: OverflowBadge) => void;
 }
 
-export function DayView({ cursor, today, events, onEventClick }: DayViewProps) {
+export function DayView({ cursor, today, events, onEventClick, maxCols = 6, onOverflowClick }: DayViewProps) {
   const d = cursor;
   const isToday = sameDay(d, today);
   const allDay = eventsForDay(events, d).filter((e) => isMultiDay(e));
   const dayEvts = eventsForDay(events, d).filter((e) => !isMultiDay(e));
-  const packed = packEvents(dayEvts);
+  const { events: packed, overflows } = packEvents(dayEvts, { maxCols });
 
   const gridStyle = { gridTemplateColumns: "50px 1fr" };
 
@@ -92,6 +98,11 @@ export function DayView({ cursor, today, events, onEventClick }: DayViewProps) {
 
           {packed.map((e) => (
             <TimedEventCard key={e.id} event={e} onClick={onEventClick} />
+          ))}
+
+          {/* Бейджи переполнения */}
+          {overflows.map((b) => (
+            <OverflowBadgeCard key={b.id} badge={b} onClick={(badge) => onOverflowClick?.(d, badge)} />
           ))}
         </div>
       </div>

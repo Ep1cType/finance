@@ -39,12 +39,18 @@ export function Calendar({
 
   const editingEvent = useMemo(() => events.find((e) => e.id === editingId) ?? null, [events, editingId]);
 
-  // Боковая панель доступна только в месячном виде
-  const showDayPanel = view === "month" && selectedDay !== null;
+  // Боковая панель доступна во всех видах. В Month — открывается кликом по дню /
+  // «+N ещё»; в Week/Day — кликом по «+N» бейджу overflow.
+  const showDayPanel = selectedDay !== null;
 
   const handleDayClick = (day: Date) => {
     // Повторный клик по тому же дню — закрывает панель
     setSelectedDay((prev) => (prev && sameDay(prev, day) ? null : day));
+  };
+
+  // Клик по бейджу переполнения в Day/Week view — открыть детали этого дня
+  const handleOverflowClick = (day: Date) => {
+    setSelectedDay(day);
   };
 
   // Заголовок по виду
@@ -168,10 +174,22 @@ export function Calendar({
               />
             )}
             {view === "week" && (
-              <WeekView cursor={cursor} today={today} events={events} onEventClick={handleEventClick} />
+              <WeekView
+                cursor={cursor}
+                today={today}
+                events={events}
+                onEventClick={handleEventClick}
+                onOverflowClick={handleOverflowClick}
+              />
             )}
             {view === "day" && (
-              <DayView cursor={cursor} today={today} events={events} onEventClick={handleEventClick} />
+              <DayView
+                cursor={cursor}
+                today={today}
+                events={events}
+                onEventClick={handleEventClick}
+                onOverflowClick={handleOverflowClick}
+              />
             )}
           </div>
 

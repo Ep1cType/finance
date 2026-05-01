@@ -1,8 +1,8 @@
-"use client";
-
 import { COLOR_CLASSES, HOUR_END, HOUR_START, SLOT_HEIGHT, WEEKDAYS } from "./constants";
+import { OverflowBadgeCard } from "./OverflowBadge";
 import { TimedEventCard } from "./TimedEventCard";
 import type { CalendarEvent } from "./types";
+import type { OverflowBadge } from "./utils";
 import { addDays, dayDiff, eventsForDay, isMultiDay, packEvents, packLanes, sameDay, startOfWeek } from "./utils";
 
 interface WeekViewProps {
@@ -10,9 +10,17 @@ interface WeekViewProps {
   today: Date;
   events: CalendarEvent[];
   onEventClick: (id: string) => void;
+  /**
+   * Максимум видимых колонок в кластере. При превышении лишние события
+   * сворачиваются в «+N» бейдж в последней колонке.
+   * Default: 4 (в неделе колонки узкие).
+   */
+  maxCols?: number;
+  /** Клик по «+N» бейджу — обычно открывает панель деталей дня */
+  onOverflowClick?: (day: Date, badge: OverflowBadge) => void;
 }
 
-export function WeekView({ cursor, today, events, onEventClick }: WeekViewProps) {
+export function WeekView({ cursor, today, events, onEventClick, maxCols = 4, onOverflowClick }: WeekViewProps) {
   const start = startOfWeek(cursor);
   const end = addDays(start, 6);
 
@@ -103,7 +111,7 @@ export function WeekView({ cursor, today, events, onEventClick }: WeekViewProps)
         {Array.from({ length: 7 }).map((_, i) => {
           const d = addDays(start, i);
           const dayEvts = eventsForDay(events, d).filter((e) => !isMultiDay(e));
-          const packed = packEvents(dayEvts);
+          const { events: packed, overflows } = packEvents(dayEvts, { maxCols });
 
           return (
             <div key={i} className="relative border-r-[0.5px] border-r-gray-200 last:border-r-0">
@@ -115,6 +123,11 @@ export function WeekView({ cursor, today, events, onEventClick }: WeekViewProps)
               {/* События дня */}
               {packed.map((e) => (
                 <TimedEventCard key={e.id} event={e} onClick={onEventClick} />
+              ))}
+
+              {/* Бейджи переполнения */}
+              {overflows.map((b) => (
+                <OverflowBadgeCard key={b.id} badge={b} onClick={(badge) => onOverflowClick?.(d, badge)} />
               ))}
             </div>
           );
