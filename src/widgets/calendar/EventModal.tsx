@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 import { COLOR_DOT_CLASSES, COLOR_OPTIONS } from "./constants";
@@ -35,13 +34,13 @@ export function EventModal({ event, onClose, onSave }: EventModalProps) {
     <div
       role="dialog"
       aria-modal="true"
-      className="absolute inset-0 z-[100] flex items-center justify-center rounded-md bg-black/45 p-5"
+      className="absolute inset-0 z-[1000] flex items-center justify-center rounded-md bg-black/45 p-5"
       onClick={handleBackdropClick}
     >
-      <div className="w-full max-w-95 rounded-lg border-[0.5px] border-gray-200 bg-white px-4.5 py-4">
+      <div className="w-full max-w-[380px] rounded-lg border-[0.5px] border-gray-200 bg-white px-[18px] py-4">
         {/* Шапка модалки: точка цвета + название + крестик */}
         <div className="mb-3.5 flex items-center gap-2.5">
-          <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-xs ${COLOR_DOT_CLASSES[draft.color]}`} />
+          <span className={`inline-block h-2.5 w-2.5 flex-shrink-0 rounded-[2px] ${COLOR_DOT_CLASSES[draft.color]}`} />
           <input
             value={draft.title}
             onChange={(e) => update("title", e.target.value)}
@@ -52,7 +51,7 @@ export function EventModal({ event, onClose, onSave }: EventModalProps) {
             type="button"
             aria-label="Закрыть"
             onClick={onClose}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-gray-200 text-gray-700 hover:bg-gray-100"
+            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-gray-200 text-gray-700 hover:bg-gray-100"
           >
             ×
           </button>
@@ -141,7 +140,7 @@ export function EventModal({ event, onClose, onSave }: EventModalProps) {
   );
 }
 
-function ModalRow({ label, children }: { label: string; children: ReactNode }) {
+function ModalRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid items-center gap-2" style={{ gridTemplateColumns: "70px 1fr" }}>
       <span className="text-[12px] text-gray-500">{label}</span>

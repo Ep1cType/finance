@@ -27,8 +27,12 @@ export interface LanedEvent extends CalendarEvent {
   _lane: number;
 }
 
-/** Событие, прошедшее column-packing для пересекающихся однодневных событий */
-export interface ColumnedEvent extends CalendarEvent {
+/** Событие после layout-упаковки для дневного/недельного вида */
+export interface PackedEvent extends CalendarEvent {
+  /** Колонка внутри кластера (0-based) */
   _col: number;
-  _totalCols: number;
+  /** Сколько колонок занимает справа (>=1). Позволяет одиночным расширяться. */
+  _span: number;
+  /** Всего колонок в кластере */
+  _clusterCols: number;
 }

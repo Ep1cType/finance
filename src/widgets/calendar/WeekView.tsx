@@ -1,18 +1,9 @@
 "use client";
 
 import { COLOR_CLASSES, HOUR_END, HOUR_START, SLOT_HEIGHT, WEEKDAYS } from "./constants";
+import { TimedEventCard } from "./TimedEventCard";
 import type { CalendarEvent } from "./types";
-import {
-  addDays,
-  dayDiff,
-  eventsForDay,
-  fmtTime,
-  isMultiDay,
-  packCols,
-  packLanes,
-  sameDay,
-  startOfWeek,
-} from "./utils";
+import { addDays, dayDiff, eventsForDay, isMultiDay, packEvents, packLanes, sameDay, startOfWeek } from "./utils";
 
 interface WeekViewProps {
   cursor: Date;
@@ -112,7 +103,7 @@ export function WeekView({ cursor, today, events, onEventClick }: WeekViewProps)
         {Array.from({ length: 7 }).map((_, i) => {
           const d = addDays(start, i);
           const dayEvts = eventsForDay(events, d).filter((e) => !isMultiDay(e));
-          const packed = packCols(dayEvts);
+          const packed = packEvents(dayEvts);
 
           return (
             <div key={i} className="relative border-r-[0.5px] border-r-gray-200 last:border-r-0">
@@ -122,38 +113,9 @@ export function WeekView({ cursor, today, events, onEventClick }: WeekViewProps)
               ))}
 
               {/* События дня */}
-              {packed.map((e) => {
-                const sM = (e.start.getHours() - HOUR_START) * 60 + e.start.getMinutes();
-                const eM = (e.end.getHours() - HOUR_START) * 60 + e.end.getMinutes();
-                const top = (sM * SLOT_HEIGHT) / 60;
-                const h = Math.max(22, ((eM - sM) * SLOT_HEIGHT) / 60);
-                const wp = 100 / e._totalCols;
-                const lp = e._col * wp;
-                return (
-                  <div
-                    key={e.id}
-                    className={`absolute cursor-pointer overflow-hidden rounded-[4px] px-1.5 py-[3px] text-[11px] leading-[1.3] ${COLOR_CLASSES[e.color]} ${
-                      e.completed ? "line-through opacity-55" : ""
-                    }`}
-                    style={{
-                      top: `${top}px`,
-                      height: `${h}px`,
-                      left: `${lp}%`,
-                      width: `calc(${wp}% - 2px)`,
-                    }}
-                    onClick={(ev) => {
-                      ev.stopPropagation();
-                      onEventClick(e.id);
-                    }}
-                  >
-                    <b className="block truncate font-medium">{e.title}</b>
-                    <span className="block truncate text-[11px] opacity-85">
-                      {fmtTime(e.start)}
-                      {e.speaker ? ` · ${e.speaker}` : ""}
-                    </span>
-                  </div>
-                );
-              })}
+              {packed.map((e) => (
+                <TimedEventCard key={e.id} event={e} onClick={onEventClick} />
+              ))}
             </div>
           );
         })}

@@ -1,8 +1,9 @@
 "use client";
 
 import { COLOR_CLASSES, HOUR_END, HOUR_START, MONTHS_GEN, SLOT_HEIGHT, WEEKDAYS } from "./constants";
+import { TimedEventCard } from "./TimedEventCard";
 import type { CalendarEvent } from "./types";
-import { eventsForDay, fmtTime, isMultiDay, packCols, sameDay } from "./utils";
+import { eventsForDay, isMultiDay, packEvents, sameDay } from "./utils";
 
 interface DayViewProps {
   cursor: Date;
@@ -16,7 +17,7 @@ export function DayView({ cursor, today, events, onEventClick }: DayViewProps) {
   const isToday = sameDay(d, today);
   const allDay = eventsForDay(events, d).filter((e) => isMultiDay(e));
   const dayEvts = eventsForDay(events, d).filter((e) => !isMultiDay(e));
-  const packed = packCols(dayEvts);
+  const packed = packEvents(dayEvts);
 
   const gridStyle = { gridTemplateColumns: "50px 1fr" };
 
@@ -89,38 +90,9 @@ export function DayView({ cursor, today, events, onEventClick }: DayViewProps) {
             <div key={h} className="border-b-[0.5px] border-b-gray-200" style={{ height: `${SLOT_HEIGHT}px` }} />
           ))}
 
-          {packed.map((e) => {
-            const sM = (e.start.getHours() - HOUR_START) * 60 + e.start.getMinutes();
-            const eM = (e.end.getHours() - HOUR_START) * 60 + e.end.getMinutes();
-            const top = (sM * SLOT_HEIGHT) / 60;
-            const h = Math.max(28, ((eM - sM) * SLOT_HEIGHT) / 60);
-            const wp = 100 / e._totalCols;
-            const lp = e._col * wp;
-            return (
-              <div
-                key={e.id}
-                className={`absolute cursor-pointer overflow-hidden rounded-[4px] px-1.5 py-[3px] text-[11px] leading-[1.3] ${COLOR_CLASSES[e.color]} ${
-                  e.completed ? "line-through opacity-55" : ""
-                }`}
-                style={{
-                  top: `${top}px`,
-                  height: `${h}px`,
-                  left: `${lp}%`,
-                  width: `calc(${wp}% - 4px)`,
-                }}
-                onClick={(ev) => {
-                  ev.stopPropagation();
-                  onEventClick(e.id);
-                }}
-              >
-                <b className="block truncate font-medium">{e.title}</b>
-                <span className="block truncate text-[11px] opacity-85">
-                  {fmtTime(e.start)}–{fmtTime(e.end)}
-                  {e.speaker ? ` · ${e.speaker}` : ""}
-                </span>
-              </div>
-            );
-          })}
+          {packed.map((e) => (
+            <TimedEventCard key={e.id} event={e} onClick={onEventClick} />
+          ))}
         </div>
       </div>
     </div>

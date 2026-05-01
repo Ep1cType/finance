@@ -1,4 +1,4 @@
-import type { CalendarEvent, ColumnedEvent, LanedEvent } from "./types";
+import type { CalendarEvent, LanedEvent, PackedEvent } from "./types";
 
 export const sameDay = (a: Date, b: Date): boolean =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -65,35 +65,83 @@ export const packLanes = (evts: CalendarEvent[]): { events: LanedEvent[]; n: num
 };
 
 /**
- * Распределяет однодневные события по вертикальным колонкам в дневном/недельном
- * виде, чтобы пересекающиеся по времени события рендерились рядом.
+ * Layout пересекающихся событий по образцу Google Calendar / FullCalendar.
+ *
+ * 1. Кластеризация: события объединяются в кластер, если связаны цепочкой
+ *    пересечений (A пересекается с B, B с C → A, B, C в одном кластере).
+ * 2. Column packing внутри кластера: каждое событие в первую свободную колонку.
+ * 3. Расширение (span): после размещения каждое событие пытается расшириться
+ *    в правые колонки, пока там нет пересекающихся с ним событий. Это даёт
+ *    одиночному событию шанс занять всю ширину, даже если рядом по времени
+ *    есть кластер с большим числом колонок.
  */
-export const packCols = (evts: CalendarEvent[]): ColumnedEvent[] => {
-  const arr = [...evts].sort((a, b) => a.start.getTime() - b.start.getTime() || b.end.getTime() - a.end.getTime());
-  const cols: ColumnedEvent[][] = [];
-  const result: ColumnedEvent[] = [];
+export const packEvents = (evts: CalendarEvent[]): PackedEvent[] => {
+  if (evts.length === 0) return [];
 
-  for (const e of arr) {
-    let placed = false;
-    for (let i = 0; i < cols.length; i++) {
-      const last = cols[i][cols[i].length - 1];
-      if (last.end.getTime() <= e.start.getTime()) {
-        const col: ColumnedEvent = { ...e, _col: i, _totalCols: 0 };
-        cols[i].push(col);
-        result.push(col);
-        placed = true;
-        break;
+  // Сортировка: по началу, при равенстве — длиннее раньше
+  const sorted = [...evts].sort((a, b) => a.start.getTime() - b.start.getTime() || b.end.getTime() - a.end.getTime());
+
+  // ── 1. Кластеризация ────────────────────────────────────────────
+  const clusters: CalendarEvent[][] = [];
+  let current: CalendarEvent[] = [];
+  let currentEnd = 0;
+  for (const e of sorted) {
+    if (current.length === 0 || e.start.getTime() < currentEnd) {
+      current.push(e);
+      currentEnd = Math.max(currentEnd, e.end.getTime());
+    } else {
+      clusters.push(current);
+      current = [e];
+      currentEnd = e.end.getTime();
+    }
+  }
+  if (current.length) clusters.push(current);
+
+  // ── 2 + 3. Column packing и расширение для каждого кластера ─────
+  const result: PackedEvent[] = [];
+  for (const cluster of clusters) {
+    const cols: CalendarEvent[][] = [];
+    const colOf = new Map<string, number>();
+
+    for (const e of cluster) {
+      let placed = false;
+      for (let i = 0; i < cols.length; i++) {
+        const last = cols[i][cols[i].length - 1];
+        if (last.end.getTime() <= e.start.getTime()) {
+          cols[i].push(e);
+          colOf.set(e.id, i);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        cols.push([e]);
+        colOf.set(e.id, cols.length - 1);
       }
     }
-    if (!placed) {
-      const col: ColumnedEvent = { ...e, _col: cols.length, _totalCols: 0 };
-      cols.push([col]);
-      result.push(col);
+
+    const totalCols = cols.length;
+
+    for (const e of cluster) {
+      const myCol = colOf.get(e.id)!;
+      let span = 1;
+      // Расширяем вправо пока нет пересечений
+      for (let next = myCol + 1; next < totalCols; next++) {
+        const conflict = cols[next].some(
+          (o) => Math.max(o.start.getTime(), e.start.getTime()) < Math.min(o.end.getTime(), e.end.getTime()),
+        );
+        if (conflict) break;
+        span++;
+      }
+      result.push({
+        ...e,
+        _col: myCol,
+        _span: span,
+        _clusterCols: totalCols,
+      });
     }
   }
 
-  // Проставляем итоговое число колонок для всех событий
-  for (const e of result) e._totalCols = cols.length;
   return result;
 };
 
