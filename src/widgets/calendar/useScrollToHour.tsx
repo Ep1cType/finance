@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef } from "react";
 
 import { DEFAULT_SCROLL_HOUR, HOUR_START, SLOT_HEIGHT } from "./constants";

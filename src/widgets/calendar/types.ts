@@ -35,4 +35,12 @@ export interface PackedEvent extends CalendarEvent {
   _span: number;
   /** Всего колонок в кластере */
   _clusterCols: number;
+  /**
+   * Слой рендера:
+   *  - `'background'` — рисуется первым, на полную ширину дня, низкий z-index.
+   *    Используется для длинных событий, которые могут стать «фоном» под
+   *    более короткими. По hover поднимается над foreground.
+   *  - `'foreground'` — обычная карточка по column-разметке, поверх background.
+   */
+  _layer: "background" | "foreground";
 }

@@ -1,5 +1,3 @@
-"use client";
-
 import { HOUR_START, SLOT_HEIGHT } from "./constants";
 import type { OverflowBadge } from "./utils";
 import { fmtTime } from "./utils";

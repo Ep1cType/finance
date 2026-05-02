@@ -36,9 +36,17 @@ export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardP
   const isTiny = height < 30; // только заголовок одной строкой
   const isShort = height < 54; // заголовок + время; без спикера
 
-  // z-index: позже начавшиеся события — выше, чтобы при касании краёв они были
-  // сверху. На hover поднимаем ещё выше.
-  const baseZ = 10 + Math.floor(startMin / 5);
+  // z-index по слою:
+  //   background — внизу (1..5), при hover поднимается выше foreground (60).
+  //   foreground — сверху (10+), при hover ещё выше (50). Поздние события
+  //   получают чуть больший z, чтобы при касании краёв оказывались сверху.
+  const isBg = e._layer === "background";
+  const baseZ = isBg ? 1 + Math.floor(startMin / 60) : 10 + Math.floor(startMin / 5);
+  const hoverZ = isBg ? 60 : 50;
+
+  // Background-события рисуем чуть бледнее, чтобы поверх лежащие foreground
+  // были чётче. Также убираем тень — фон не должен «всплывать» в покое.
+  const bgClass = isBg ? "opacity-80 hover:opacity-100 hover:shadow-md" : "hover:shadow-md";
 
   return (
     <button
@@ -48,7 +56,7 @@ export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardP
         onClick(e.id);
       }}
       title={`${e.title}${e.speaker ? ` · ${e.speaker}` : ""} · ${fmtTime(e.start)}–${fmtTime(e.end)}`}
-      className={`group absolute overflow-hidden rounded-[4px] text-left transition-shadow hover:z-50 hover:shadow-md focus:z-50 focus:outline-none focus:ring-2 focus:ring-[#185FA5]/40 ${COLOR_CLASSES[e.color]} ${
+      className={`group absolute overflow-hidden rounded-[4px] text-left transition-[opacity,box-shadow] focus:outline-none focus:ring-2 focus:ring-[#185FA5]/40 ${COLOR_CLASSES[e.color]} ${bgClass} ${
         e.completed ? "opacity-60" : ""
       }`}
       style={{
@@ -57,6 +65,20 @@ export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardP
         left: `${leftPct}%`,
         width: `calc(${widthPct}% - ${gapPx}px)`,
         zIndex: baseZ,
+        // Inline-стиль на hover: используем CSS-переменную для динамического z-index
+        ["--hover-z" as string]: hoverZ,
+      }}
+      onMouseEnter={(ev) => {
+        ev.currentTarget.style.zIndex = String(hoverZ);
+      }}
+      onMouseLeave={(ev) => {
+        ev.currentTarget.style.zIndex = String(baseZ);
+      }}
+      onFocus={(ev) => {
+        ev.currentTarget.style.zIndex = String(hoverZ);
+      }}
+      onBlur={(ev) => {
+        ev.currentTarget.style.zIndex = String(baseZ);
       }}
     >
       {/* Цветная полоска слева — акцент */}
