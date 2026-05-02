@@ -1,4 +1,4 @@
-import { CASCADE_INDENT_PCT, COLOR_CLASSES, HOUR_START, SLOT_HEIGHT } from "./constants";
+import { BG_OVERLAY_OFFSET_PCT, CASCADE_INDENT_PCT, COLOR_CLASSES, HOUR_START, SLOT_HEIGHT } from "./constants";
 import type { PackedEvent } from "./types";
 import { fmtTime } from "./utils";
 
@@ -28,8 +28,14 @@ export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardP
   const top = (startMin * SLOT_HEIGHT) / 60;
   const height = Math.max(22, (durationMin * SLOT_HEIGHT) / 60);
 
-  const widthPct = (e._span / e._clusterCols) * 100;
-  const leftPct = (e._col / e._clusterCols) * 100;
+  // Если событие лежит поверх background, слева резервируется полоса
+  // BG_OVERLAY_OFFSET_PCT — на ней будет видно фоновое событие. Внутри
+  // оставшейся ширины событие всё равно делит место с другими foreground
+  // по обычной column-разметке.
+  const reserved = e._overBackground ? BG_OVERLAY_OFFSET_PCT : 0;
+  const availableWidth = 100 - reserved;
+  const widthPct = (e._span / e._clusterCols) * availableWidth;
+  const leftPct = reserved + (e._col / e._clusterCols) * availableWidth;
 
   // Каскадный сдвиг (вариант (а): событие сжимается). При indent = N левый
   // край сдвигается на N * CASCADE_INDENT_PCT процентов вправо, ширина
@@ -57,6 +63,7 @@ export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardP
 
   return (
     <button
+      data-set={availableWidth}
       type="button"
       onClick={(ev) => {
         ev.stopPropagation();
@@ -70,7 +77,7 @@ export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardP
         top: `${top}px`,
         height: `${height}px`,
         left: `${finalLeftPct}%`,
-        width: `calc(${finalWidthPct}% - ${gapPx}px)`,
+        width: `calc(${100 - finalLeftPct}% - ${gapPx}px)`,
         zIndex: baseZ,
         // Inline-стиль на hover: используем CSS-переменную для динамического z-index
         ["--hover-z" as string]: hoverZ,

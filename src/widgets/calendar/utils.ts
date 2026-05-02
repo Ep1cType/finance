@@ -175,21 +175,15 @@ export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }
     // ── 2. Выделение background-слоя ────────────────────────────────
     // Событие становится background-слоем, если выполнено хотя бы одно:
     //  (a) оно полностью покрывает по времени хотя бы одно другое событие
-    //      кластера (классический «контейнер» вроде «Хакатон» 0–24 + мелкие);
+    //      кластера, причём само минимум в 2× длиннее покрываемого. Это
+    //      отсеивает кейсы вроде «Брифинг 12:00–12:45» «контейнерящий»
+    //      «Звонок региону 12:15–12:45» — формально покрытие есть, но события
+    //      одного масштаба и фоном это считать нельзя.
     //  (b) оно длиной ≥ BACKGROUND_RATIO × длина_кластера И в кластере есть
     //      хотя бы одно событие, чья длина < BACKGROUND_RATIO × длина события
     //      (то есть кластер содержит «коротыши» относительно него).
-    //
-    // (a) ловит случай вложенности; (b) — два «дежурства» по полдня + мелкая
-    // встреча между ними (там вечернее дежурство не покрывает передачу смены
-    // полностью, но «дежурство 8ч + передача 1ч» делает вечернее фоном).
-    //
-    // Из кандидатов жадно отбираем непересекающиеся по убыванию длины. Так
-    // одиночное длинное событие в собственном кластере (без других) останется
-    // foreground — у него и так будет 100% ширины через _span расширение.
-    // А два равных пересекающихся (Интервью+Монтаж) → оба foreground, потому
-    // что (a) не выполнено и в (b) не находится «коротыша».
     const BACKGROUND_RATIO = 0.5;
+    const CONTAINER_RATIO = 2;
 
     const clusterStart = Math.min(...cluster.map((e) => e.start.getTime()));
     const clusterEnd = Math.max(...cluster.map((e) => e.end.getTime()));
@@ -200,7 +194,11 @@ export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }
 
     const isContainer = (e: CalendarEvent) =>
       cluster.some(
-        (o) => o.id !== e.id && o.start.getTime() >= e.start.getTime() && o.end.getTime() <= e.end.getTime(),
+        (o) =>
+          o.id !== e.id &&
+          o.start.getTime() >= e.start.getTime() &&
+          o.end.getTime() <= e.end.getTime() &&
+          lenOf(e) >= lenOf(o) * CONTAINER_RATIO,
       );
 
     const longCandidates =
@@ -237,6 +235,7 @@ export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }
         _span: 1,
         _clusterCols: 1,
         _indent: 0,
+        _overBackground: false,
         _layer: "background",
       });
     }
@@ -322,12 +321,21 @@ export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }
         if (conflict) break;
         span++;
       }
+      // Пересекается ли это событие хоть с одним background-событием в
+      // кластере? Если да — оно «лежит поверх» bg и должно быть сжато с
+      // выравниванием по правому краю, чтобы слева осталась видна полоска
+      // background-события.
+      const overBg = background.some(
+        (b) => Math.max(b.start.getTime(), e.start.getTime()) < Math.min(b.end.getTime(), e.end.getTime()),
+      );
+
       result.push({
         ...e,
         _col: myCol,
         _span: span,
         _clusterCols: visibleCols,
         _indent: indentOf.get(e.id) ?? 0,
+        _overBackground: overBg,
         _layer: "foreground",
       });
     }

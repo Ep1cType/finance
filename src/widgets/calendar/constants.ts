@@ -97,3 +97,10 @@ export const DEFAULT_SCROLL_HOUR = 7;
  * слева. См. поле `_indent` в `PackedEvent`.
  */
 export const CASCADE_INDENT_PCT = 6;
+
+/**
+ * Левый отступ для foreground-события, лежащего поверх background-события.
+ * Резервирует видимую «полоску» background-события слева — чтобы было понятно
+ * что под мелкими событиями скрывается длинное. См. `_overBackground`.
+ */
+export const BG_OVERLAY_OFFSET_PCT = 25;
