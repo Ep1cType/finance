@@ -90,3 +90,10 @@ export const BODY_MAX_HEIGHT = 540; // ≈ 15 часовых слотов
  * смене даты. 7 — стандарт Google Calendar (видны утренние события).
  */
 export const DEFAULT_SCROLL_HOUR = 7;
+
+/**
+ * Ширина одного «уровня» каскадного отступа в процентах от ширины колонки
+ * дня. Применяется к foreground-событиям, начинающимся позже своих соседей
+ * слева. См. поле `_indent` в `PackedEvent`.
+ */
+export const CASCADE_INDENT_PCT = 6;

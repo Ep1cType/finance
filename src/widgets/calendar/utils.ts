@@ -23,12 +23,40 @@ export const fmtTime = (d: Date): string => `${d.getHours()}:${String(d.getMinut
 export const dayDiff = (a: Date, b: Date): number =>
   Math.floor((startOfDay(a).getTime() - startOfDay(b).getTime()) / 86_400_000);
 
-export const isMultiDay = (e: CalendarEvent): boolean => !!e.allDay || !sameDay(e.start, e.end);
+/**
+ * Автоматическое определение «событие на весь день»: start и end попадают на
+ * полночь (00:00:00), и end либо равен start, либо ровно начало следующего дня
+ * (как exclusive end по соглашению ICS/RFC5545).
+ *
+ * Это позволяет автору данных просто указать `start = end = D(YYYY, M, D)`
+ * без явного `allDay: true` — и событие автоматически уйдёт в all-day полосу.
+ */
+export const isAutoAllDay = (e: CalendarEvent): boolean => {
+  const sIsMidnight =
+    e.start.getHours() === 0 &&
+    e.start.getMinutes() === 0 &&
+    e.start.getSeconds() === 0 &&
+    e.start.getMilliseconds() === 0;
+  const eIsMidnight =
+    e.end.getHours() === 0 && e.end.getMinutes() === 0 && e.end.getSeconds() === 0 && e.end.getMilliseconds() === 0;
+  if (!sIsMidnight || !eIsMidnight) return false;
+  // start === end (одна точка во времени) или end = следующий день
+  const diff = e.end.getTime() - e.start.getTime();
+  return diff === 0 || diff === 86_400_000;
+};
+
+export const isMultiDay = (e: CalendarEvent): boolean => !!e.allDay || isAutoAllDay(e) || !sameDay(e.start, e.end);
 
 export const eventsForDay = (events: CalendarEvent[], day: Date): CalendarEvent[] => {
   const ds = startOfDay(day);
   const de = addDays(ds, 1);
-  return events.filter((e) => e.start < de && e.end > ds);
+  return events.filter((e) => {
+    // Auto-allDay (одинаковые даты без времени) попадают в день, если start
+    // равен этому дню — у них end === start, поэтому общее условие пересечения
+    // `end > ds` не сработает.
+    if (isAutoAllDay(e)) return sameDay(e.start, day);
+    return e.start < de && e.end > ds;
+  });
 };
 
 /**
@@ -145,16 +173,22 @@ export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }
 
   for (const cluster of clusters) {
     // ── 2. Выделение background-слоя ────────────────────────────────
-    // «Длинное» событие — то, чья длительность составляет хотя бы
-    // BACKGROUND_RATIO от общей длины кластера. Из длинных жадно отбираем
-    // непересекающиеся (по убыванию длины) — они станут background.
+    // Событие становится background-слоем, если выполнено хотя бы одно:
+    //  (a) оно полностью покрывает по времени хотя бы одно другое событие
+    //      кластера (классический «контейнер» вроде «Хакатон» 0–24 + мелкие);
+    //  (b) оно длиной ≥ BACKGROUND_RATIO × длина_кластера И в кластере есть
+    //      хотя бы одно событие, чья длина < BACKGROUND_RATIO × длина события
+    //      (то есть кластер содержит «коротыши» относительно него).
     //
-    // Это даёт нужное поведение для двух типичных случаев:
-    //  - одно событие на весь день + мелкие → событие в фон
-    //  - два «дежурства» по полдня + мелкая встреча между ними → оба в фон
+    // (a) ловит случай вложенности; (b) — два «дежурства» по полдня + мелкая
+    // встреча между ними (там вечернее дежурство не покрывает передачу смены
+    // полностью, но «дежурство 8ч + передача 1ч» делает вечернее фоном).
     //
-    // Одиночное длинное событие в собственном кластере (без других) останется
+    // Из кандидатов жадно отбираем непересекающиеся по убыванию длины. Так
+    // одиночное длинное событие в собственном кластере (без других) останется
     // foreground — у него и так будет 100% ширины через _span расширение.
+    // А два равных пересекающихся (Интервью+Монтаж) → оба foreground, потому
+    // что (a) не выполнено и в (b) не находится «коротыша».
     const BACKGROUND_RATIO = 0.5;
 
     const clusterStart = Math.min(...cluster.map((e) => e.start.getTime()));
@@ -162,11 +196,25 @@ export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }
     const clusterDuration = clusterEnd - clusterStart;
     const minBgDuration = clusterDuration * BACKGROUND_RATIO;
 
+    const lenOf = (e: CalendarEvent) => e.end.getTime() - e.start.getTime();
+
+    const isContainer = (e: CalendarEvent) =>
+      cluster.some(
+        (o) => o.id !== e.id && o.start.getTime() >= e.start.getTime() && o.end.getTime() <= e.end.getTime(),
+      );
+
     const longCandidates =
       cluster.length > 1
         ? cluster
-            .filter((e) => e.end.getTime() - e.start.getTime() >= minBgDuration)
-            .sort((a, b) => b.end.getTime() - b.start.getTime() - (a.end.getTime() - a.start.getTime()))
+            .filter((e) => {
+              const len = lenOf(e);
+              if (isContainer(e)) return true;
+              if (len < minBgDuration) return false;
+              // (b): в кластере есть «коротыш» относительно нашей длины
+              const shortThreshold = len * BACKGROUND_RATIO;
+              return cluster.some((o) => o.id !== e.id && lenOf(o) < shortThreshold);
+            })
+            .sort((a, b) => lenOf(b) - lenOf(a))
         : [];
 
     const background: CalendarEvent[] = [];
@@ -188,6 +236,7 @@ export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }
         _col: 0,
         _span: 1,
         _clusterCols: 1,
+        _indent: 0,
         _layer: "background",
       });
     }
@@ -222,7 +271,41 @@ export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }
 
     const hiddenEvents: CalendarEvent[] = [];
 
-    // ── 4. Расширение span + сбор overflow ─────────────────────────
+    // ── 4a. Расчёт каскадного _indent ───────────────────────────────
+    // Если событие B начинается СТРОГО позже какого-то события A в более
+    // ранней колонке (A пересекается с B), B каскадно сдвигается вправо. Это
+    // нужно чтобы при пересечениях с разными `start` была видна нижняя
+    // граница верхнего события, которое иначе скрывалось бы под нижним.
+    //
+    // Глубина: indent(B) = 1 + max(indent(A)) по таким A. События с
+    // одинаковым `start` (например, оба ровно в 11:00) каскад не получают —
+    // они делятся колонками 50/50.
+    const indentOf = new Map<string, number>();
+    for (let colIdx = 0; colIdx < naturalCols; colIdx++) {
+      for (const e of cols[colIdx]) {
+        if (colIdx === 0) {
+          indentOf.set(e.id, 0);
+          continue;
+        }
+        let maxParentIndent = -1;
+        for (let prevCol = 0; prevCol < colIdx; prevCol++) {
+          for (const o of cols[prevCol]) {
+            const overlaps =
+              Math.max(o.start.getTime(), e.start.getTime()) < Math.min(o.end.getTime(), e.end.getTime());
+            const startsLater = e.start.getTime() > o.start.getTime();
+            if (overlaps && startsLater) {
+              const oIndent = indentOf.get(o.id) ?? 0;
+              if (oIndent > maxParentIndent) maxParentIndent = oIndent;
+            }
+          }
+        }
+        // Если нет каскадного предка (например, оба начались одновременно
+        // но с разной длиной — попали в разные колонки) — indent = 0.
+        indentOf.set(e.id, maxParentIndent === -1 ? 0 : maxParentIndent + 1);
+      }
+    }
+
+    // ── 4b. Расширение span + сбор overflow ────────────────────────
     for (const e of remaining) {
       const myCol = colOf.get(e.id)!;
       if (isOverflow && myCol >= overflowColIndex) {
@@ -244,6 +327,7 @@ export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }
         _col: myCol,
         _span: span,
         _clusterCols: visibleCols,
+        _indent: indentOf.get(e.id) ?? 0,
         _layer: "foreground",
       });
     }

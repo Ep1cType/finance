@@ -1,4 +1,4 @@
-import { COLOR_CLASSES, HOUR_START, SLOT_HEIGHT } from "./constants";
+import { CASCADE_INDENT_PCT, COLOR_CLASSES, HOUR_START, SLOT_HEIGHT } from "./constants";
 import type { PackedEvent } from "./types";
 import { fmtTime } from "./utils";
 
@@ -31,6 +31,13 @@ export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardP
   const widthPct = (e._span / e._clusterCols) * 100;
   const leftPct = (e._col / e._clusterCols) * 100;
 
+  // Каскадный сдвиг (вариант (а): событие сжимается). При indent = N левый
+  // край сдвигается на N * CASCADE_INDENT_PCT процентов вправо, ширина
+  // уменьшается на ту же величину. Background-событиям _indent всегда 0.
+  const indentPct = e._indent * CASCADE_INDENT_PCT;
+  const finalLeftPct = leftPct + indentPct;
+  const finalWidthPct = widthPct - indentPct;
+
   // Уровни компактности по реальной высоте плашки (не по длительности),
   // т.к. SLOT_HEIGHT=36 даёт всего 18px на 30-минутное событие.
   const isTiny = height < 30; // только заголовок одной строкой
@@ -62,8 +69,8 @@ export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardP
       style={{
         top: `${top}px`,
         height: `${height}px`,
-        left: `${leftPct}%`,
-        width: `calc(${widthPct}% - ${gapPx}px)`,
+        left: `${finalLeftPct}%`,
+        width: `calc(${finalWidthPct}% - ${gapPx}px)`,
         zIndex: baseZ,
         // Inline-стиль на hover: используем CSS-переменную для динамического z-index
         ["--hover-z" as string]: hoverZ,

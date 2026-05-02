@@ -437,13 +437,16 @@ export const sampleEvents: CalendarEvent[] = [
   },
   {
     id: "67",
-    title: "Дневной обзор!!!",
-    start: D(2026, 4, 24),
-    end: D(2026, 4, 24),
+    title: "Дневной обзор",
+    start: D(2026, 4, 24, 14, 0),
+    end: D(2026, 4, 24, 15, 0),
     color: "task-gray",
     speaker: "Редакция",
-    allDay: true,
   },
+
+  // Auto-allDay тест: event с одинаковыми start/end без явного allDay-флага.
+  // Должен автоматически попасть в all-day полосу в Day и Week views.
+  { id: "90", title: "День рождения коллеги", start: D(2026, 4, 23), end: D(2026, 4, 23), color: "task-pink" },
 ];
 
 /** Якорь «сегодня» — соответствует исходному прототипу */
