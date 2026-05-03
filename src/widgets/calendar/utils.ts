@@ -120,43 +120,44 @@ export interface PackEventsResult {
 }
 
 /**
- * Layout пересекающихся событий по образцу Google Calendar / FullCalendar,
- * с двухслойным рендером для длинных событий-«контейнеров».
+ * Layout пересекающихся событий через right-aligned cascade модель.
  *
  * 1. **Кластеризация.** События объединяются в кластер, если связаны цепочкой
  *    пересечений (A ↔ B, B ↔ C → A, B, C в одном кластере).
  *
- * 2. **Выделение background-слоя.** Внутри кластера итеративно ищем
- *    «контейнерные» события — те, что полностью покрывают по времени хотя бы
- *    одно другое событие кластера. Выбираем самое длинное, переносим в
- *    background-слой и пересчитываем. Если несколько контейнеров не
- *    пересекаются между собой — в background попадают оба (например, два
- *    непересекающихся «Дежурства» по полдня каждое). Background-события
- *    рендерятся на полную ширину дня.
+ * 2. **Выделение background-слоя.** Внутри кластера ищем «контейнерные»
+ *    события — те, что значительно длиннее остальных. Они рендерятся на
+ *    100% ширины, низким z-index. Каскад foreground идёт поверх.
  *
- * 3. **Foreground column packing.** Оставшиеся события упаковываются в колонки
- *    жадно: каждое — в первую свободную колонку, без конфликтов.
+ * 3. **Cascade расчёт.** Для каждого foreground-события считается K — макс.
+ *    число одновременно пересекающихся foreground-событий в его собственном
+ *    интервале (sweep line). Видимая ширина i-й карточки = `(K - i) / K *
+ *    availableWidth`. Все карточки упираются в правый край колонки.
  *
- * 4. **Расширение span.** Каждое foreground-событие пытается расшириться
- *    вправо до ближайшего конфликта. Это даёт одиночным событиям полную
- *    ширину foreground-слоя, даже если в кластере несколько колонок.
+ *    Порядок: события сортируются по позиции в массиве (стабильно). Раньше
+ *    добавленные → леверее → шире. При переупорядочивании массива (drag &
+ *    drop, изменение времени) layout автоматически пересчитывается.
  *
- * Если задан `options.maxCols` и foreground-кластеру нужно больше колонок —
- * последние сворачиваются в `OverflowBadge` («+N»).
+ * 4. **Overflow.** Если K > maxCols, события с cascade-индексом ≥ maxCols
+ *    группируются по непрерывным временным сегментам и заменяются на
+ *    `OverflowBadge` («+N»).
  */
 export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }): PackEventsResult => {
   if (evts.length === 0) return { events: [], overflows: [] };
 
   const maxCols = options?.maxCols ?? Infinity;
 
-  // Сортировка: по началу, при равенстве — длиннее раньше
-  const sorted = [...evts].sort((a, b) => a.start.getTime() - b.start.getTime() || b.end.getTime() - a.end.getTime());
+  // Сортировка для кластеризации: по началу, при равенстве — длиннее раньше.
+  // (Для каскада потом будет использоваться исходный порядок массива.)
+  const sortedForClustering = [...evts].sort(
+    (a, b) => a.start.getTime() - b.start.getTime() || b.end.getTime() - a.end.getTime(),
+  );
 
   // ── 1. Кластеризация ────────────────────────────────────────────
   const clusters: CalendarEvent[][] = [];
   let current: CalendarEvent[] = [];
   let currentEnd = 0;
-  for (const e of sorted) {
+  for (const e of sortedForClustering) {
     if (current.length === 0 || e.start.getTime() < currentEnd) {
       current.push(e);
       currentEnd = Math.max(currentEnd, e.end.getTime());
@@ -173,15 +174,11 @@ export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }
 
   for (const cluster of clusters) {
     // ── 2. Выделение background-слоя ────────────────────────────────
-    // Событие становится background-слоем, если выполнено хотя бы одно:
-    //  (a) оно полностью покрывает по времени хотя бы одно другое событие
-    //      кластера, причём само минимум в 2× длиннее покрываемого. Это
-    //      отсеивает кейсы вроде «Брифинг 12:00–12:45» «контейнерящий»
-    //      «Звонок региону 12:15–12:45» — формально покрытие есть, но события
-    //      одного масштаба и фоном это считать нельзя.
-    //  (b) оно длиной ≥ BACKGROUND_RATIO × длина_кластера И в кластере есть
-    //      хотя бы одно событие, чья длина < BACKGROUND_RATIO × длина события
-    //      (то есть кластер содержит «коротыши» относительно него).
+    // Событие → background, если хотя бы одно:
+    //  (a) полностью покрывает другое событие кластера И само ≥ 2× длиннее
+    //      покрываемого;
+    //  (b) длина ≥ BACKGROUND_RATIO × длины кластера И в кластере есть
+    //      событие хотя бы в 2 раза короче.
     const BACKGROUND_RATIO = 0.5;
     const CONTAINER_RATIO = 2;
 
@@ -208,7 +205,6 @@ export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }
               const len = lenOf(e);
               if (isContainer(e)) return true;
               if (len < minBgDuration) return false;
-              // (b): в кластере есть «коротыш» относительно нашей длины
               const shortThreshold = len * BACKGROUND_RATIO;
               return cluster.some((o) => o.id !== e.id && lenOf(o) < shortThreshold);
             })
@@ -217,7 +213,6 @@ export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }
 
     const background: CalendarEvent[] = [];
     for (const candidate of longCandidates) {
-      // Берём, если не пересекается ни с одним уже выбранным background
       const conflicts = background.some(
         (b) =>
           Math.max(b.start.getTime(), candidate.start.getTime()) < Math.min(b.end.getTime(), candidate.end.getTime()),
@@ -231,116 +226,98 @@ export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }
     for (const e of background) {
       result.push({
         ...e,
-        _col: 0,
-        _span: 1,
-        _clusterCols: 1,
-        _indent: 0,
+        _cascadeIndex: 0,
+        _cascadeTotal: 1,
         _overBackground: false,
         _layer: "background",
       });
     }
 
-    // ── 3. Foreground column packing ────────────────────────────────
+    // ── 3. Cascade layout для foreground ───────────────────────────
     if (remaining.length === 0) continue;
 
-    const cols: CalendarEvent[][] = [];
-    const colOf = new Map<string, number>();
+    // Сохраняем позицию каждого события в исходном массиве `evts` —
+    // это и есть порядок каскада.
+    const indexInOriginal = new Map<string, number>();
+    evts.forEach((e, i) => indexInOriginal.set(e.id, i));
+
+    const overlaps = (a: CalendarEvent, b: CalendarEvent) =>
+      Math.max(a.start.getTime(), b.start.getTime()) < Math.min(a.end.getTime(), b.end.getTime());
+
+    // Для каждого события считаем:
+    //  - K (overlap): максимум одновременно пересекающихся foreground-событий
+    //    в любой точке его интервала (sweep по точкам стартов).
+    //  - cascadeIndex: его ранг среди тех событий, которые с ним реально
+    //    пересекаются И при этом тоже находятся в своём максимуме перекрытий
+    //    в общей точке. Проще: в какой-то точке t события e и o оба активны,
+    //    и в этой точке overlap = K(e). Тогда они «соседи по cascade» и
+    //    индекс e = ранг по indexInOriginal среди таких событий.
+    //
+    // Для одиночного события (K=1) cascadeIndex = 0 → left = 0% (или base
+    // если over bg) и width = 100%.
+    const cascadeIndexOf = new Map<string, number>();
+    const overlapOf = new Map<string, number>();
 
     for (const e of remaining) {
-      let placed = false;
-      for (let i = 0; i < cols.length; i++) {
-        const last = cols[i][cols[i].length - 1];
-        if (last.end.getTime() <= e.start.getTime()) {
-          cols[i].push(e);
-          colOf.set(e.id, i);
-          placed = true;
-          break;
+      // Точки для проверки: start самого e и все starts других событий,
+      // попадающих в [e.start, e.end). Между этими точками overlap не меняется.
+      const points: number[] = [e.start.getTime()];
+      for (const o of remaining) {
+        const t = o.start.getTime();
+        if (t > e.start.getTime() && t < e.end.getTime()) points.push(t);
+      }
+
+      let bestK = 0;
+      let bestPeers: CalendarEvent[] = [];
+      for (const t of points) {
+        const peers = remaining.filter((o) => o.start.getTime() <= t && t < o.end.getTime());
+        if (peers.length > bestK) {
+          bestK = peers.length;
+          bestPeers = peers;
         }
       }
-      if (!placed) {
-        cols.push([e]);
-        colOf.set(e.id, cols.length - 1);
-      }
+
+      overlapOf.set(e.id, bestK);
+      // Ранг e среди bestPeers по позиции в исходном массиве
+      const sortedPeers = [...bestPeers].sort(
+        (a, b) => (indexInOriginal.get(a.id) ?? 0) - (indexInOriginal.get(b.id) ?? 0),
+      );
+      cascadeIndexOf.set(
+        e.id,
+        sortedPeers.findIndex((p) => p.id === e.id),
+      );
     }
 
-    const naturalCols = cols.length;
-    const isOverflow = naturalCols > maxCols;
-    const visibleCols = isOverflow ? maxCols : naturalCols;
-    const overflowColIndex = visibleCols - 1;
-
+    // ── 4. Применение _cascadeIndex / _cascadeTotal + overflow ─────
     const hiddenEvents: CalendarEvent[] = [];
 
-    // ── 4a. Расчёт каскадного _indent ───────────────────────────────
-    // Если событие B начинается СТРОГО позже какого-то события A в более
-    // ранней колонке (A пересекается с B), B каскадно сдвигается вправо. Это
-    // нужно чтобы при пересечениях с разными `start` была видна нижняя
-    // граница верхнего события, которое иначе скрывалось бы под нижним.
-    //
-    // Глубина: indent(B) = 1 + max(indent(A)) по таким A. События с
-    // одинаковым `start` (например, оба ровно в 11:00) каскад не получают —
-    // они делятся колонками 50/50.
-    const indentOf = new Map<string, number>();
-    for (let colIdx = 0; colIdx < naturalCols; colIdx++) {
-      for (const e of cols[colIdx]) {
-        if (colIdx === 0) {
-          indentOf.set(e.id, 0);
-          continue;
-        }
-        let maxParentIndent = -1;
-        for (let prevCol = 0; prevCol < colIdx; prevCol++) {
-          for (const o of cols[prevCol]) {
-            const overlaps =
-              Math.max(o.start.getTime(), e.start.getTime()) < Math.min(o.end.getTime(), e.end.getTime());
-            const startsLater = e.start.getTime() > o.start.getTime();
-            if (overlaps && startsLater) {
-              const oIndent = indentOf.get(o.id) ?? 0;
-              if (oIndent > maxParentIndent) maxParentIndent = oIndent;
-            }
-          }
-        }
-        // Если нет каскадного предка (например, оба начались одновременно
-        // но с разной длиной — попали в разные колонки) — indent = 0.
-        indentOf.set(e.id, maxParentIndent === -1 ? 0 : maxParentIndent + 1);
-      }
-    }
-
-    // ── 4b. Расширение span + сбор overflow ────────────────────────
     for (const e of remaining) {
-      const myCol = colOf.get(e.id)!;
-      if (isOverflow && myCol >= overflowColIndex) {
+      const cascadeIndex = cascadeIndexOf.get(e.id) ?? 0;
+      const k = overlapOf.get(e.id) ?? 1;
+
+      if (cascadeIndex >= maxCols) {
         hiddenEvents.push(e);
         continue;
       }
 
-      const spanLimit = isOverflow ? overflowColIndex : naturalCols;
-      let span = 1;
-      for (let next = myCol + 1; next < spanLimit; next++) {
-        const conflict = cols[next].some(
-          (o) => Math.max(o.start.getTime(), e.start.getTime()) < Math.min(o.end.getTime(), e.end.getTime()),
-        );
-        if (conflict) break;
-        span++;
-      }
-      // Пересекается ли это событие хоть с одним background-событием в
-      // кластере? Если да — оно «лежит поверх» bg и должно быть сжато с
-      // выравниванием по правому краю, чтобы слева осталась видна полоска
-      // background-события.
-      const overBg = background.some(
-        (b) => Math.max(b.start.getTime(), e.start.getTime()) < Math.min(b.end.getTime(), e.end.getTime()),
-      );
+      // Если K больше maxCols, урезаем до maxCols — иначе пропорции
+      // сделают левые карточки слишком широкими, и overflow-бейдж не
+      // вписался бы в оставшиеся проценты.
+      const effectiveK = Math.min(k, maxCols);
+
+      const overBg = background.some((b) => overlaps(b, e));
 
       result.push({
         ...e,
-        _col: myCol,
-        _span: span,
-        _clusterCols: visibleCols,
-        _indent: indentOf.get(e.id) ?? 0,
+        _cascadeIndex: cascadeIndex,
+        _cascadeTotal: effectiveK,
         _overBackground: overBg,
         _layer: "foreground",
       });
     }
 
-    // ── Группировка скрытых событий в overflow-бейджи ──────────────
+    // Группируем скрытые события в overflow-бейджи. Каждый бейдж ставится в
+    // последний видимый cascade-уровень (maxCols-1) с _cascadeTotal = maxCols.
     if (hiddenEvents.length > 0) {
       const sortedHidden = [...hiddenEvents].sort((a, b) => a.start.getTime() - b.start.getTime());
       let segStart = sortedHidden[0].start;
@@ -350,8 +327,12 @@ export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }
       const flush = () => {
         overflows.push({
           id: `ovf-${segIds[0]}-${segIds.length}`,
-          col: overflowColIndex,
-          clusterCols: visibleCols,
+          // Старые поля col/clusterCols сохраняются для совместимости с
+          // OverflowBadgeCard, но интерпретируются под cascade-модель:
+          // col = maxCols - 1 (последний видимый уровень),
+          // clusterCols = maxCols.
+          col: maxCols - 1,
+          clusterCols: maxCols,
           start: segStart,
           end: segEnd,
           count: segIds.length,

@@ -24,7 +24,8 @@ export function OverflowBadgeCard({ badge, onClick, gapPx = 2 }: OverflowBadgeCa
   const top = (startMin * SLOT_HEIGHT) / 60;
   const height = Math.max(22, ((endMin - startMin) * SLOT_HEIGHT) / 60);
 
-  const widthPct = (1 / badge.clusterCols) * 100;
+  // Cascade-расчёт: badge.col = последний видимый уровень, clusterCols = K.
+  // Бейдж занимает позицию K-1 уровня и упирается в правый край.
   const leftPct = (badge.col / badge.clusterCols) * 100;
 
   return (
@@ -41,8 +42,8 @@ export function OverflowBadgeCard({ badge, onClick, gapPx = 2 }: OverflowBadgeCa
         top: `${top}px`,
         height: `${height}px`,
         left: `${leftPct}%`,
-        width: `calc(${widthPct}% - ${gapPx}px)`,
-        zIndex: 5, // ниже обычных событий, чтобы они выходили на передний план при наложении
+        width: `calc(${100 - leftPct}% - ${gapPx}px)`,
+        zIndex: 5,
       }}
     >
       <span className="text-[12px] font-semibold leading-tight">+{badge.count}</span>

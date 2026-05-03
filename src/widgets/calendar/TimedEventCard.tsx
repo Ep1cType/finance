@@ -1,4 +1,4 @@
-import { BG_OVERLAY_OFFSET_PCT, CASCADE_INDENT_PCT, COLOR_CLASSES, HOUR_START, SLOT_HEIGHT } from "./constants";
+import { BG_OVERLAY_OFFSET_PCT, COLOR_CLASSES, HOUR_START, SLOT_HEIGHT } from "./constants";
 import type { PackedEvent } from "./types";
 import { fmtTime } from "./utils";
 
@@ -10,16 +10,16 @@ interface TimedEventCardProps {
 }
 
 /**
- * Карточка события в сетке дня/недели.
+ * Карточка события в сетке дня/недели — right-aligned cascade модель.
  *
- * Layout:
- *   left  = (_col / _clusterCols) * 100%
- *   width = (_span / _clusterCols) * 100% − gap
+ * Каждая карточка упирается в правый край колонки, а левый край сдвинут так,
+ * что видимая ширина i-й карточки = `(K - i) / K * availableWidth`.
  *
- * Адаптивный контент:
- *   <30 мин — только заголовок одной строкой
- *   30–60 мин — заголовок + время
- *   ≥60 мин — заголовок + время + спикер
+ *   left  = base + (i / K) * availableWidth
+ *   width = 100% - left  (с поправкой на gap)
+ *
+ * где `base` = 0 для обычных событий и BG_OVERLAY_OFFSET_PCT для событий
+ * поверх background — чтобы слева осталась видна полоска bg-события.
  */
 export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardProps) {
   const startMin = (e.start.getHours() - HOUR_START) * 60 + e.start.getMinutes();
@@ -28,42 +28,37 @@ export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardP
   const top = (startMin * SLOT_HEIGHT) / 60;
   const height = Math.max(22, (durationMin * SLOT_HEIGHT) / 60);
 
-  // Если событие лежит поверх background, слева резервируется полоса
-  // BG_OVERLAY_OFFSET_PCT — на ней будет видно фоновое событие. Внутри
-  // оставшейся ширины событие всё равно делит место с другими foreground
-  // по обычной column-разметке.
-  const reserved = e._overBackground ? BG_OVERLAY_OFFSET_PCT : 0;
-  const availableWidth = 100 - reserved;
-  const widthPct = (e._span / e._clusterCols) * availableWidth;
-  const leftPct = reserved + (e._col / e._clusterCols) * availableWidth;
+  // base — точка отсчёта левого края.
+  // Для background и одиночных foreground (не over bg) — 0.
+  // Для foreground over bg — резерв слева на видимую полосу bg-события.
+  const base = e._overBackground ? BG_OVERLAY_OFFSET_PCT : 0;
+  const availableWidth = 100 - base;
 
-  // Каскадный сдвиг (вариант (а): событие сжимается). При indent = N левый
-  // край сдвигается на N * CASCADE_INDENT_PCT процентов вправо, ширина
-  // уменьшается на ту же величину. Background-событиям _indent всегда 0.
-  const indentPct = e._indent * CASCADE_INDENT_PCT;
-  const finalLeftPct = leftPct + indentPct;
-  const finalWidthPct = widthPct - indentPct;
+  // Cascade: i-я карточка из K имеет видимую ширину (K-i)/K * available.
+  // Все карточки заканчиваются на правом крае — поэтому width = 100 - left.
+  const i = e._cascadeIndex;
+  const K = Math.max(1, e._cascadeTotal);
+  const finalLeftPct = base + (i / K) * availableWidth;
 
-  // Уровни компактности по реальной высоте плашки (не по длительности),
-  // т.к. SLOT_HEIGHT=36 даёт всего 18px на 30-минутное событие.
-  const isTiny = height < 30; // только заголовок одной строкой
-  const isShort = height < 54; // заголовок + время; без спикера
+  // Уровни компактности по реальной высоте плашки.
+  const isTiny = height < 30;
+  const isShort = height < 54;
 
-  // z-index по слою:
-  //   background — внизу (1..5), при hover поднимается выше foreground (60).
-  //   foreground — сверху (10+), при hover ещё выше (50). Поздние события
-  //   получают чуть больший z, чтобы при касании краёв оказывались сверху.
+  // z-index:
+  //  - background: низкий (1..) для покоя; на hover поднимается выше всего
+  //    foreground (60), чтобы можно было «достать» из-под коротких.
+  //  - foreground: чем больше cascadeIndex (правее, уже), тем выше z-index
+  //    в покое — иначе узкие события заслонялись бы широкими.
+  //    На hover любой поднимается до 70 (выше hovered bg = 60).
   const isBg = e._layer === "background";
-  const baseZ = isBg ? 1 + Math.floor(startMin / 60) : 10 + Math.floor(startMin / 5);
-  const hoverZ = isBg ? 60 : 50;
+  const baseZ = isBg ? 2 : 10 + i;
+  const hoverZ = isBg ? 60 : 70;
 
-  // Background-события рисуем чуть бледнее, чтобы поверх лежащие foreground
-  // были чётче. Также убираем тень — фон не должен «всплывать» в покое.
+  // Background-события рисуем чуть бледнее. На hover — полную яркость.
   const bgClass = isBg ? "opacity-80 hover:opacity-100 hover:shadow-md" : "hover:shadow-md";
 
   return (
     <button
-      data-set={availableWidth}
       type="button"
       onClick={(ev) => {
         ev.stopPropagation();
@@ -77,10 +72,10 @@ export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardP
         top: `${top}px`,
         height: `${height}px`,
         left: `${finalLeftPct}%`,
+        // width = 100% - left - gap. Через calc, чтобы карточка точно упёрлась
+        // в правый край колонки (минус технический gap для визуального воздуха).
         width: `calc(${100 - finalLeftPct}% - ${gapPx}px)`,
         zIndex: baseZ,
-        // Inline-стиль на hover: используем CSS-переменную для динамического z-index
-        ["--hover-z" as string]: hoverZ,
       }}
       onMouseEnter={(ev) => {
         ev.currentTarget.style.zIndex = String(hoverZ);
@@ -100,7 +95,6 @@ export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardP
 
       <div className={`flex h-full flex-col px-2 ${isTiny ? "py-px" : "py-1"} pl-[9px]`}>
         {isTiny ? (
-          // Очень короткое: всё в одну строку
           <div className="flex items-center gap-1.5 truncate text-[11px] leading-tight">
             <span className={`truncate font-medium ${e.completed ? "line-through" : ""}`}>{e.title}</span>
             <span className="shrink-0 opacity-70">{fmtTime(e.start)}</span>
