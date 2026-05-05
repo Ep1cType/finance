@@ -112,6 +112,11 @@ export interface OverflowBadge {
   count: number;
   /** ID скрытых событий — пригодятся, если нужно отфильтровать список */
   hiddenIds: string[];
+  /**
+   * Бейдж лежит поверх background-события — добавляем тот же 25% offset,
+   * что и у foreground-карточек, чтобы badge не залезал на видимую полосу bg.
+   */
+  overBackground: boolean;
 }
 
 export interface PackEventsResult {
@@ -289,13 +294,22 @@ export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }
     }
 
     // ── 4. Применение _cascadeIndex / _cascadeTotal + overflow ─────
+    // Если K (число пересекающихся) превышает maxCols, последний видимый
+    // cascade-слот отдаётся под «+N» бейдж. Видимыми остаются события с
+    // cascadeIndex 0..maxCols-2, остальные → overflow.
     const hiddenEvents: CalendarEvent[] = [];
 
     for (const e of remaining) {
       const cascadeIndex = cascadeIndexOf.get(e.id) ?? 0;
       const k = overlapOf.get(e.id) ?? 1;
 
-      if (cascadeIndex >= maxCols) {
+      // Когда K больше maxCols, последний видимый слот = бейдж. Скрываем
+      // события с cascadeIndex ≥ maxCols-1 (т.е. ровно последнего видимого).
+      // Когда K ≤ maxCols — все события показываются, бейдж не нужен.
+      const willHaveBadge = k > maxCols;
+      const hideThreshold = willHaveBadge ? maxCols - 1 : maxCols;
+
+      if (cascadeIndex >= hideThreshold) {
         hiddenEvents.push(e);
         continue;
       }
@@ -325,18 +339,22 @@ export const packEvents = (evts: CalendarEvent[], options?: { maxCols?: number }
       let segIds: string[] = [sortedHidden[0].id];
 
       const flush = () => {
+        // Бейдж лежит поверх bg, если хотя бы одно скрытое событие пересекается
+        // с background. Все скрытые в одном сегменте имеют одинаковое overlapping
+        // отношение к bg (т.к. сегмент непрерывен и bg обычно длинный).
+        const segOverBg = background.some(
+          (b) => Math.max(b.start.getTime(), segStart.getTime()) < Math.min(b.end.getTime(), segEnd.getTime()),
+        );
+
         overflows.push({
           id: `ovf-${segIds[0]}-${segIds.length}`,
-          // Старые поля col/clusterCols сохраняются для совместимости с
-          // OverflowBadgeCard, но интерпретируются под cascade-модель:
-          // col = maxCols - 1 (последний видимый уровень),
-          // clusterCols = maxCols.
           col: maxCols - 1,
           clusterCols: maxCols,
           start: segStart,
           end: segEnd,
           count: segIds.length,
           hiddenIds: segIds,
+          overBackground: segOverBg,
         });
       };
 

@@ -45,14 +45,15 @@ export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardP
   const isShort = height < 54;
 
   // z-index:
-  //  - background: низкий (1..) для покоя; на hover поднимается выше всего
-  //    foreground (60), чтобы можно было «достать» из-под коротких.
-  //  - foreground: чем больше cascadeIndex (правее, уже), тем выше z-index
-  //    в покое — иначе узкие события заслонялись бы широкими.
-  //    На hover любой поднимается до 70 (выше hovered bg = 60).
+  //  - background: низкий (2) — лежит под foreground.
+  //  - foreground: чем больше cascadeIndex (правее, уже), тем выше z-index —
+  //    иначе узкие события заслонялись бы широкими.
+  //
+  // Hover не меняет z-index: это сбивает с толку, особенно когда длинное
+  // background-событие вдруг выскакивает наверх. Для drag-and-drop в будущем
+  // используем явные drag-зоны/handles, а не hover.
   const isBg = e._layer === "background";
   const baseZ = isBg ? 2 : 10 + i;
-  const hoverZ = isBg ? 60 : 70;
 
   // Background-события рисуем чуть бледнее. На hover — полную яркость.
   const bgClass = isBg ? "opacity-80 hover:opacity-100 hover:shadow-md" : "hover:shadow-md";
@@ -76,18 +77,6 @@ export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardP
         // в правый край колонки (минус технический gap для визуального воздуха).
         width: `calc(${100 - finalLeftPct}% - ${gapPx}px)`,
         zIndex: baseZ,
-      }}
-      onMouseEnter={(ev) => {
-        ev.currentTarget.style.zIndex = String(hoverZ);
-      }}
-      onMouseLeave={(ev) => {
-        ev.currentTarget.style.zIndex = String(baseZ);
-      }}
-      onFocus={(ev) => {
-        ev.currentTarget.style.zIndex = String(hoverZ);
-      }}
-      onBlur={(ev) => {
-        ev.currentTarget.style.zIndex = String(baseZ);
       }}
     >
       {/* Цветная полоска слева — акцент */}
