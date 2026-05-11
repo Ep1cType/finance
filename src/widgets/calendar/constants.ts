@@ -90,10 +90,3 @@ export const BODY_MAX_HEIGHT = 540; // ≈ 15 часовых слотов
  * смене даты. 7 — стандарт Google Calendar (видны утренние события).
  */
 export const DEFAULT_SCROLL_HOUR = 7;
-
-/**
- * Левый отступ для foreground-события, лежащего поверх background-события.
- * Резервирует видимую «полоску» background-события слева — чтобы было понятно
- * что под мелкими событиями скрывается длинное. См. `_overBackground`.
- */
-export const BG_OVERLAY_OFFSET_PCT = 25;

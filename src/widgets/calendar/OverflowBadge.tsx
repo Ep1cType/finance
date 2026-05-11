@@ -1,4 +1,4 @@
-import { BG_OVERLAY_OFFSET_PCT, HOUR_START, SLOT_HEIGHT } from "./constants";
+import { HOUR_START, SLOT_HEIGHT } from "./constants";
 import type { OverflowBadge } from "./utils";
 import { fmtTime } from "./utils";
 
@@ -10,9 +10,8 @@ interface OverflowBadgeCardProps {
 
 /**
  * Компактная карточка-индикатор «+N» в зоне переполнения. Стоит на месте
- * последнего видимого cascade-уровня (cascadeIndex = maxCols - 1, K = maxCols).
- * Если бейдж лежит поверх background-события, его доступная зона начинается
- * с BG_OVERLAY_OFFSET_PCT — так же как у foreground-карточек.
+ * последнего видимого cascade-уровня (cascadeIndex = maxCols - 1, K = maxCols)
+ * по той же формуле равных долей что и обычные карточки в TimedEventCard.
  */
 export function OverflowBadgeCard({ badge, onClick, gapPx = 2 }: OverflowBadgeCardProps) {
   const startMin = (badge.start.getHours() - HOUR_START) * 60 + badge.start.getMinutes();
@@ -20,10 +19,10 @@ export function OverflowBadgeCard({ badge, onClick, gapPx = 2 }: OverflowBadgeCa
   const top = (startMin * SLOT_HEIGHT) / 60;
   const height = Math.max(22, ((endMin - startMin) * SLOT_HEIGHT) / 60);
 
-  // Cascade-формула: бейдж занимает позицию (col / clusterCols) от base.
-  const base = badge.overBackground ? BG_OVERLAY_OFFSET_PCT : 0;
-  const availableWidth = 100 - base;
-  const leftPct = base + (badge.col / badge.clusterCols) * availableWidth;
+  // Формула равных долей: left = (i / K) * 100%
+  const i = badge.col;
+  const K = Math.max(1, badge.clusterCols);
+  const leftPct = (i / K) * 100;
 
   return (
     <button
@@ -40,9 +39,7 @@ export function OverflowBadgeCard({ badge, onClick, gapPx = 2 }: OverflowBadgeCa
         height: `${height}px`,
         left: `${leftPct}%`,
         width: `calc(${100 - leftPct}% - ${gapPx}px)`,
-        // Бейдж должен быть поверх обычных foreground (которые могут заехать
-        // под него каскадом), поэтому z-index = 10 + maxCols (выше любого
-        // foreground cascadeIndex).
+        // Выше любого видимого cascade-события.
         zIndex: 10 + badge.clusterCols,
       }}
     >

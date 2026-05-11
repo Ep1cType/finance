@@ -1,4 +1,4 @@
-import { BG_OVERLAY_OFFSET_PCT, COLOR_CLASSES, HOUR_START, SLOT_HEIGHT } from "./constants";
+import { COLOR_CLASSES, HOUR_START, SLOT_HEIGHT } from "./constants";
 import type { PackedEvent } from "./types";
 import { fmtTime } from "./utils";
 
@@ -10,16 +10,17 @@ interface TimedEventCardProps {
 }
 
 /**
- * Карточка события в сетке дня/недели — right-aligned cascade модель.
+ * Карточка события в сетке дня/недели — right-aligned cascade модель
+ * с равными долями.
  *
- * Каждая карточка упирается в правый край колонки, а левый край сдвинут так,
- * что видимая ширина i-й карточки = `(K - i) / K * availableWidth`.
+ * Формула:
+ *   left  = (i / K) * 100%
+ *   width = 100% - left
  *
- *   left  = base + (i / K) * availableWidth
- *   width = 100% - left  (с поправкой на gap)
- *
- * где `base` = 0 для обычных событий и BG_OVERLAY_OFFSET_PCT для событий
- * поверх background — чтобы слева осталась видна полоска bg-события.
+ * Например при K=3:
+ *   i=0 → 0%/100% (база)
+ *   i=1 → 33.3%/66.6%
+ *   i=2 → 66.6%/33.3%
  */
 export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardProps) {
   const startMin = (e.start.getHours() - HOUR_START) * 60 + e.start.getMinutes();
@@ -28,35 +29,27 @@ export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardP
   const top = (startMin * SLOT_HEIGHT) / 60;
   const height = Math.max(22, (durationMin * SLOT_HEIGHT) / 60);
 
-  // base — точка отсчёта левого края.
-  // Для background и одиночных foreground (не over bg) — 0.
-  // Для foreground over bg — резерв слева на видимую полосу bg-события.
-  const base = e._overBackground ? BG_OVERLAY_OFFSET_PCT : 0;
-  const availableWidth = 100 - base;
-
-  // Cascade: i-я карточка из K имеет видимую ширину (K-i)/K * available.
-  // Все карточки заканчиваются на правом крае — поэтому width = 100 - left.
   const i = e._cascadeIndex;
   const K = Math.max(1, e._cascadeTotal);
-  const finalLeftPct = base + (i / K) * availableWidth;
+
+  // Формула равных долей: каждая карточка занимает 1/K ширины колонки
+  // (с правым выравниванием).
+  //   left  = (i / K) * 100%
+  //   width = 100% - left = (K - i) / K * 100%
+  // Например при K=3:
+  //   i=0 → 0%/100% (база)
+  //   i=1 → 33.3%/66.6%
+  //   i=2 → 66.6%/33.3%
+  const finalLeftPct = (i / K) * 100;
 
   // Уровни компактности по реальной высоте плашки.
   const isTiny = height < 30;
   const isShort = height < 54;
 
-  // z-index:
-  //  - background: низкий (2) — лежит под foreground.
-  //  - foreground: чем больше cascadeIndex (правее, уже), тем выше z-index —
-  //    иначе узкие события заслонялись бы широкими.
-  //
-  // Hover не меняет z-index: это сбивает с толку, особенно когда длинное
-  // background-событие вдруг выскакивает наверх. Для drag-and-drop в будущем
-  // используем явные drag-зоны/handles, а не hover.
-  const isBg = e._layer === "background";
-  const baseZ = isBg ? 2 : 10 + i;
-
-  // Background-события рисуем чуть бледнее. На hover — полную яркость.
-  const bgClass = isBg ? "opacity-80 hover:opacity-100 hover:shadow-md" : "hover:shadow-md";
+  // z-index: чем больше cascadeIndex (правее, уже), тем выше — иначе узкие
+  // правые события скрывались бы под широкими левыми. Hover не меняет z-index
+  // (намеренно: сбивало с толку при перетаскивании в будущем).
+  const baseZ = 10 + i;
 
   return (
     <button
@@ -66,15 +59,13 @@ export function TimedEventCard({ event: e, onClick, gapPx = 2 }: TimedEventCardP
         onClick(e.id);
       }}
       title={`${e.title}${e.speaker ? ` · ${e.speaker}` : ""} · ${fmtTime(e.start)}–${fmtTime(e.end)}`}
-      className={`group absolute overflow-hidden rounded-[4px] text-left transition-[opacity,box-shadow] focus:outline-none focus:ring-2 focus:ring-[#185FA5]/40 ${COLOR_CLASSES[e.color]} ${bgClass} ${
+      className={`group absolute overflow-hidden rounded-[4px] text-left transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#185FA5]/40 ${COLOR_CLASSES[e.color]} ${
         e.completed ? "opacity-60" : ""
       }`}
       style={{
         top: `${top}px`,
         height: `${height}px`,
         left: `${finalLeftPct}%`,
-        // width = 100% - left - gap. Через calc, чтобы карточка точно упёрлась
-        // в правый край колонки (минус технический gap для визуального воздуха).
         width: `calc(${100 - finalLeftPct}% - ${gapPx}px)`,
         zIndex: baseZ,
       }}
